@@ -1,0 +1,227 @@
+// Bisik DevNet deploy/seed against the shared 5N hackathon validator.
+// Reads scripts/.env.devnet (gitignored). Node >= 20.
+//   node scripts/devnet.mjs probe
+//   node scripts/devnet.mjs upload .daml/dist/bisik-0.1.0.dar
+//   node scripts/devnet.mjs allocate
+//   node scripts/devnet.mjs seed
+import { readFile, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, '..');
+
+async function loadEnv() {
+  const txt = await readFile(join(HERE, '.env.devnet'), 'utf8');
+  const e = {};
+  for (const line of txt.split(/\r?\n/)) {
+    const m = line.match(/^([A-Z_]+)=(.*)$/);
+    if (m) e[m[1]] = m[2];
+  }
+  return e;
+}
+
+let ENV, TOKEN, TOKEN_AT = 0;
+const L = () => ENV.DEVNET_LEDGER_URL.replace(/\/$/, '');
+
+async function token() {
+  if (TOKEN && Date.now() - TOKEN_AT < 6 * 60 * 1000) return TOKEN; // reuse ~6min
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: ENV.DEVNET_CLIENT_ID,
+    client_secret: ENV.DEVNET_CLIENT_SECRET,
+    audience: ENV.DEVNET_AUDIENCE,
+    scope: ENV.DEVNET_SCOPE,
+  });
+  let lastErr;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const r = await fetch(ENV.DEVNET_TOKEN_URL, {
+        method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body,
+      });
+      const t = await r.text();
+      const j = JSON.parse(t);
+      if (j.access_token) { TOKEN = j.access_token.trim(); TOKEN_AT = Date.now(); return TOKEN; }
+      lastErr = new Error('no access_token: ' + t.slice(0, 120));
+    } catch (e) { lastErr = e; }
+    await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+  }
+  throw lastErr;
+}
+
+async function api(path, { method = 'GET', json, raw, contentType } = {}) {
+  const t = await token();
+  const headers = { authorization: `Bearer ${t}` };
+  let body;
+  if (json !== undefined) { headers['content-type'] = 'application/json'; body = JSON.stringify(json); }
+  else if (raw !== undefined) { headers['content-type'] = contentType ?? 'application/octet-stream'; body = raw; }
+  const r = await fetch(L() + path, { method, headers, body });
+  const text = await r.text();
+  let data; try { data = JSON.parse(text); } catch { data = text; }
+  return { status: r.status, ok: r.ok, data };
+}
+
+const P = () => 'participant_admin'; // userId is derived from token sub; unused for commands here
+const NS = { value: null };
+
+// ---- commands ----
+async function probe() {
+  const end = await api('/v2/state/ledger-end');
+  console.log('ledger-end:', end.status, JSON.stringify(end.data));
+  const ver = await api('/v2/version');
+  console.log('version:', ver.status, typeof ver.data === 'object' ? ver.data.version : ver.data);
+  const parties = await api('/v2/parties');
+  const list = parties.data?.partyDetails ?? [];
+  console.log('parties:', parties.status, 'count=', list.length);
+  for (const p of list.slice(0, 8)) console.log('   ', p.party);
+  // who am I / rights
+  const me = await api('/v2/users/6');
+  console.log('user 6:', me.status, JSON.stringify(me.data).slice(0, 200));
+  const rights = await api('/v2/users/6/rights');
+  console.log('user 6 rights:', rights.status, JSON.stringify(rights.data).slice(0, 400));
+}
+
+async function upload(darPath) {
+  const bytes = await readFile(join(ROOT, darPath));
+  const r = await api('/v2/packages', { method: 'POST', raw: bytes });
+  console.log('upload:', r.status, JSON.stringify(r.data).slice(0, 200));
+}
+
+const USER = '6';
+const HINTS = {
+  buyer: 'bisik-buyer-1', dealerA: 'bisik-dealerA-1', dealerB: 'bisik-dealerB-1',
+  regulator: 'bisik-regulator-1', cashIssuer: 'bisik-cashissuer-1', bondIssuer: 'bisik-bondissuer-1',
+};
+
+async function namespace() {
+  if (NS.value) return NS.value;
+  const me = await api('/v2/users/' + USER);
+  NS.value = me.data?.user?.primaryParty?.split('::')[1];
+  return NS.value;
+}
+
+async function allocateOne(hint) {
+  const r = await api('/v2/parties', { method: 'POST', json: { partyIdHint: hint, identityProviderId: '' } });
+  if (r.status === 200) return r.data?.partyDetails?.party;
+  const cause = JSON.stringify(r.data);
+  if (cause.includes('already allocated') || cause.includes('already exists')) {
+    return `${hint}::${await namespace()}`; // idempotent on the shared namespace
+  }
+  console.log('  allocate failed for', hint, r.status, cause.slice(0, 160));
+  return null;
+}
+
+async function grant(party) {
+  const r = await api(`/v2/users/${USER}/rights`, { method: 'POST', json: {
+    userId: USER,
+    identityProviderId: '',
+    rights: [
+      { kind: { CanActAs: { value: { party } } } },
+      { kind: { CanReadAs: { value: { party } } } },
+    ],
+  } });
+  if (r.status !== 200 && process.env.DEBUG) console.log('  grant body:', JSON.stringify(r.data).slice(0, 300));
+  return r.status;
+}
+
+async function allocate() {
+  const out = {};
+  for (const [role, hint] of Object.entries(HINTS)) {
+    const party = await allocateOne(hint);
+    if (!party) continue;
+    const gs = await grant(party);
+    out[role] = party;
+    console.log(`${role.padEnd(11)} ${party}   grant=${gs}`);
+  }
+  await writeFile(join(HERE, 'devnet.parties.json'), JSON.stringify(out, null, 2));
+  console.log('wrote scripts/devnet.parties.json');
+}
+
+const PKG = '906f2697a2d0db695c3cf6ad8b28d8960507cd18ca08689f4e995013fb3add3f';
+let CID = 0;
+async function submit(actAs, command) {
+  const commandId = `bisik-${Date.now()}-${CID++}`; // stable across retries → dedup on the ledger
+  let last;
+  for (let i = 0; i < 6; i++) {
+    const r = await api('/v2/commands/submit-and-wait-for-transaction', { method: 'POST', json: {
+      commands: { userId: USER, commandId, actAs: [actAs], commands: [command] },
+    } });
+    if (r.ok) return r.data;
+    last = `submit ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`;
+    if (![503, 429, 500, 502, 504].includes(r.status)) throw new Error(last);
+    process.stdout.write(` (retry ${r.status})`);
+    await new Promise((res) => setTimeout(res, 1500 * (i + 1)));
+  }
+  throw new Error('gave up: ' + last);
+}
+const createHolding = (issuer, owner, instrument, amount) =>
+  ({ CreateCommand: { templateId: `${PKG}:Bisik:Holding`, createArguments: { issuer, owner, instrument, amount: String(amount) } } });
+
+const cidOf = (tx) => tx.transaction?.events?.find((e) => e.CreatedEvent)?.CreatedEvent?.contractId;
+
+async function parties() {
+  const out = {};
+  for (const [role, hint] of Object.entries(HINTS)) {
+    const p = await allocateOne(hint);
+    await grant(p);
+    out[role] = p;
+  }
+  return out;
+}
+
+async function seed() {
+  const p = await parties();
+  console.log('parties ready:');
+  for (const [r, v] of Object.entries(p)) console.log('  ', r.padEnd(11), v);
+
+  const cash = cidOf(await submit(p.cashIssuer, createHolding(p.cashIssuer, p.buyer, 'USDC', '5000000.0')));
+  const bondA = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerA, 'TBOND30', '1000.0')));
+  const bondB = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerB, 'TBOND30', '1000.0')));
+  console.log('minted holdings (cash + 2 bonds)');
+
+  const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
+    buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
+    instrument: 'TBOND30', quantity: '1000.0', payInstrument: 'USDC' } } }));
+  console.log('RFQ live:', rfq.slice(0, 24) + '…');
+
+  const quote = (dealer, price, assetCid) => ({ ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`,
+    contractId: rfq, choice: 'SubmitQuote', choiceArgument: { dealer, price, assetCid } } });
+  await submit(p.dealerA, quote(p.dealerA, '4210000.0', bondA));
+  await submit(p.dealerB, quote(p.dealerB, '4250000.0', bondB));
+  console.log('two sealed quotes submitted (A: 4.21M, B: 4.25M)');
+
+  await writeFile(join(HERE, 'devnet.parties.json'), JSON.stringify(p, null, 2));
+  console.log('\nwrote scripts/devnet.parties.json — point the web UI at DevNet and open it.');
+}
+
+async function acsAs(party) {
+  const off = (await api('/v2/state/ledger-end')).data.offset;
+  const r = await api('/v2/state/active-contracts', { method: 'POST', json: {
+    filter: { filtersByParty: { [party]: { cumulative: [] } } }, verbose: true, activeAtOffset: off } });
+  return (Array.isArray(r.data) ? r.data : [])
+    .map((x) => x.contractEntry?.JsActiveContract?.createdEvent).filter(Boolean);
+}
+
+async function verify() {
+  const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
+  for (const role of ['buyer', 'dealerA', 'dealerB', 'regulator']) {
+    const ev = await acsAs(p[role]);
+    const byTpl = {};
+    for (const e of ev) { const t = e.templateId.split(':').slice(-1)[0]; byTpl[t] = (byTpl[t] ?? 0) + 1; }
+    const quotes = ev.filter((e) => e.templateId.endsWith(':Bisik:Quote'))
+      .map((e) => e.createArgument.dealer.split('-').slice(0, 2).join('-'));
+    console.log(role.padEnd(11), JSON.stringify(byTpl), quotes.length ? 'quotes from: ' + quotes.join(',') : '');
+  }
+}
+
+const cmd = process.argv[2];
+(async () => {
+  ENV = await loadEnv();
+  if (cmd === 'probe') await probe();
+  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.1.0.dar');
+  else if (cmd === 'allocate-one') console.log(await allocateOne(process.argv[3] ?? 'bisik-probe-1'));
+  else if (cmd === 'allocate') await allocate();
+  else if (cmd === 'seed') await seed();
+  else if (cmd === 'verify') await verify();
+  else console.log('usage: probe | upload <dar> | allocate | seed | verify');
+})().catch((e) => { console.error('ERR', e.message); process.exit(1); });

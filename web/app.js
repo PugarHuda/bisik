@@ -56,13 +56,19 @@ const toast = (msg, err = false) => {
 };
 
 // ---- discovery ----
-async function loadParties() {
-  const { partyDetails } = await api('/v2/parties');
-  const find = (pfx) => partyDetails.find((p) => p.party.startsWith(pfx + '-') || p.party.startsWith(pfx + '::'))?.party;
-  P.buyer = find('Buyer'); P.dealerA = find('DealerA'); P.dealerB = find('DealerB'); P.regulator = find('Regulator');
-  for (const [role, id] of Object.entries(P)) {
+async function loadParties(configParties) {
+  if (configParties && configParties.buyer) {
+    // DevNet: use the known party IDs from server config.
+    Object.assign(P, configParties);
+  } else {
+    // Sandbox: discover by party-id-hint prefix.
+    const { partyDetails } = await api('/v2/parties');
+    const find = (pfx) => partyDetails.find((p) => p.party.startsWith(pfx + '-') || p.party.startsWith(pfx + '::'))?.party;
+    P.buyer = find('Buyer'); P.dealerA = find('DealerA'); P.dealerB = find('DealerB'); P.regulator = find('Regulator');
+  }
+  for (const role of ['buyer', 'dealerA', 'dealerB', 'regulator']) {
     const el = document.getElementById('pid-' + role);
-    if (el && id) el.textContent = id.split('::')[0];
+    if (el && P[role]) el.textContent = P[role].split('::')[0];
   }
   return P.buyer && P.dealerA && P.dealerB;
 }
@@ -211,8 +217,9 @@ document.addEventListener('click', (e) => {
 });
 
 (async function main() {
-  try { const c = await (await fetch('/api/config')).json(); USER_ID = c.userId ?? USER_ID; } catch {}
-  if (!(await loadParties())) { setLedger('err', 'demo parties not found — run Init:initialize'); return; }
+  let cfg = {};
+  try { cfg = await (await fetch('/api/config')).json(); USER_ID = cfg.userId ?? USER_ID; } catch {}
+  if (!(await loadParties(cfg.parties))) { setLedger('err', 'demo parties not found — run seed'); return; }
   await refresh();
   setInterval(refresh, 1800);
 })();

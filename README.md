@@ -82,21 +82,38 @@ cd test && daml test # testBisik: mint → RFQ → sealed quotes → Vickrey DvP
                      # + privacy assertions (dealer B cannot query dealer A's quote)
 ```
 
-## Deploy to Canton Devnet
+## Deployed live on Canton Devnet ✅
+
+Running on the shared 5N hackathon validator (Canton **3.5.7**), via the JSON
+Ledger API. A one-file deployer (`scripts/devnet.mjs`, Node stdlib) uploads the
+DAR, allocates + grants parties, and seeds a live RFQ with two sealed quotes.
 
 ```bash
-daml build --all
-# upload the model DAR to your validator's JSON Ledger API
-#   POST /v2/packages   (bisik-0.1.0.dar)
-# then seed a live RFQ + holdings against the participant:
-daml script --dar test/.daml/dist/bisik-test-0.1.0.dar \
-  --script-name Init:initialize \
-  --ledger-host <devnet-participant> --ledger-port <port>
+cp scripts/.env.devnet.example scripts/.env.devnet   # fill client secret (Encode #general)
+node scripts/devnet.mjs upload .daml/dist/bisik-0.1.0.dar
+node scripts/devnet.mjs seed        # parties + holdings + RFQ + 2 sealed quotes
+node scripts/devnet.mjs verify      # prints per-party visibility (the privacy proof)
+# then serve the UI against Devnet (token auto-injected by the proxy):
+cd web && LEDGER_JSON_URL=https://ledger-api.validator.devnet.sandbox.fivenorth.io \
+  LEDGER_USER_ID=6 LEDGER_TOKEN_URL=… LEDGER_CLIENT_ID=… LEDGER_CLIENT_SECRET=… \
+  LEDGER_AUDIENCE=validator-devnet-m2m LEDGER_SCOPE=daml_ledger_api npm start
 ```
 
-Devnet needs a Super Validator sponsor + VPN (self-service on Devnet). Party IDs printed by `Init` go into the frontend `.env`.
+**Live deployment facts**
+- Ledger API: `https://ledger-api.validator.devnet.sandbox.fivenorth.io`
+- Model package id: `906f2697a2d0db695c3cf6ad8b28d8960507cd18ca08689f4e995013fb3add3f`
+- Parties (shared namespace `…::1220a14ca128…`): `bisik-buyer-1`, `bisik-dealerA-1`,
+  `bisik-dealerB-1`, `bisik-regulator-1`, `bisik-cashissuer-1`, `bisik-bondissuer-1`
+- On-ledger `verify` result — Dealer A and Dealer B each see **only their own**
+  Quote; the Regulator sees nothing pre-trade. Privacy proven on Devnet, not sandbox.
 
-- **Deployed party/contract IDs**: _(added on deploy)_
+`verify` on Devnet prints:
+```
+buyer      {"Holding":2,"RFQ":1,"EscrowedHolding":2,"Quote":2} quotes from: bisik-dealerA,bisik-dealerB
+dealerA    {"Holding":1,"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-dealerA
+dealerB    {"Holding":1,"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-dealerB
+regulator  {}
+```
 
 ## Honest scope
 
