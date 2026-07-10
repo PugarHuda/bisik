@@ -1,10 +1,10 @@
--- Bisik — confidential multi-dealer RFQ OTC desk on Canton.
+-- Bisik - confidential multi-dealer RFQ OTC desk on Canton.
 -- Dealers whisper quotes to the buyer; competing dealers never receive them.
 -- Blindness is Canton sub-transaction privacy, not cryptography bolted on.
 module Bisik where
 
 import DA.Foldable (forA_)
-import DA.List (sortOn)
+import DA.List (head, sortOn, tail)
 
 -- A fungible position in one instrument. Used for both legs (asset and cash).
 template Holding
@@ -32,6 +32,37 @@ template Holding
          rest <- create this with amount = amount - splitAmount
          pure (part, rest)
 
+    -- Lock the asset into escrow, disclosed to the buyer, when quoting.
+    -- The dealer can no longer double-sell it; it is released atomically at
+    -- settlement (to buyer) or returned (to dealer) on reject/withdraw.
+    choice Lock : ContractId EscrowedHolding
+      with buyer : Party
+      controller owner
+      do create EscrowedHolding with
+           issuer; dealer = owner; buyer; instrument; amount
+
+-- Asset held in escrow while a quote is live. Visible to the buyer (observer),
+-- so settlement - run with the dealer's delegated authority - can deliver it
+-- to the buyer inside one atomic transaction.
+template EscrowedHolding
+  with
+    issuer : Party
+    dealer : Party
+    buyer : Party
+    instrument : Text
+    amount : Decimal
+  where
+    signatory issuer, dealer
+    observer buyer
+
+    -- Release the escrow to a recipient, re-materialising a Holding.
+    -- Controlled by the dealer; exercised inside Quote choices where the
+    -- dealer's authority is delegated via the Quote's signatories.
+    choice DeliverTo : ContractId Holding
+      with recipient : Party
+      controller dealer
+      do create Holding with issuer; owner = recipient; instrument; amount
+
 -- Buyer requests quotes from a chosen dealer panel. The market never sees it;
 -- only invited dealers do. The RFQ carries no price information.
 template RFQ
@@ -47,8 +78,9 @@ template RFQ
     observer invitedDealers
     ensure quantity > 0.0 && not (null invitedDealers)
 
-    -- A dealer answers with a sealed quote. The created Quote is visible to
-    -- this dealer and the buyer ONLY — other dealers never receive it.
+    -- A dealer answers with a sealed quote, locking the asset into escrow.
+    -- The created Quote is visible to this dealer and the buyer ONLY - other
+    -- dealers never receive it.
     nonconsuming choice SubmitQuote : ContractId Quote
       with
         dealer : Party
@@ -61,8 +93,9 @@ template RFQ
          assertMsg "asset not owned by dealer" (asset.owner == dealer)
          assertMsg "wrong instrument" (asset.instrument == instrument)
          assertMsg "wrong quantity" (asset.amount == quantity)
+         escrowCid <- exercise assetCid Lock with buyer
          create Quote with buyer; regulator; dealer; instrument; quantity
-                           payInstrument; price; assetCid
+                           payInstrument; price; escrowCid
 
     -- Buyer settles against the submitted quotes: cheapest ask wins, but is
     -- paid the SECOND-cheapest price (reverse Vickrey), atomically DvP.
@@ -92,7 +125,7 @@ template RFQ
       do pure ()
 
 -- Sealed quote. Signatories: dealer + buyer (both bound). No observers:
--- competing dealers and the regulator cannot see it — by ledger model, not policy.
+-- competing dealers and the regulator cannot see it - by ledger model, not policy.
 template Quote
   with
     buyer : Party
@@ -102,12 +135,13 @@ template Quote
     quantity : Decimal
     payInstrument : Text
     price : Decimal
-    assetCid : ContractId Holding
+    escrowCid : ContractId EscrowedHolding
   where
     signatory dealer, buyer
 
-    -- Atomic DvP: cash to dealer and asset to buyer in ONE transaction.
-    -- Dealer's transfer authority comes from being a Quote signatory.
+    -- Atomic DvP: cash to dealer and the escrowed asset to buyer in ONE
+    -- transaction. The dealer's delivery authority comes from being a
+    -- Quote signatory.
     choice SettleQuote : ContractId TradeReport
       with
         cashCid : ContractId Holding
@@ -121,23 +155,27 @@ template Quote
          payCid <-
            if cash.amount == clearingPrice
              then pure cashCid
-             else fst <$> exercise cashCid Split with splitAmount = clearingPrice
+             else do
+               (part, _rest) <- exercise cashCid Split with splitAmount = clearingPrice
+               pure part
          _ <- exercise payCid Transfer with newOwner = dealer
-         _ <- exercise assetCid Transfer with newOwner = buyer
+         _ <- exercise escrowCid DeliverTo with recipient = buyer
          create TradeReport with
            buyer; dealer; regulator; instrument; quantity; clearingPrice
 
-    -- Buyer declines (losing quotes in Award). Nothing was escrowed, nothing leaks.
+    -- Buyer declines (losing quotes in Award); escrow returns to the dealer.
     choice RejectQuote : ()
       controller buyer
-      do pure ()
+      do _ <- exercise escrowCid DeliverTo with recipient = dealer
+         pure ()
 
-    -- Dealer walks away before award.
+    -- Dealer walks away before award; escrow returns to the dealer.
     choice WithdrawQuote : ()
       controller dealer
-      do pure ()
+      do _ <- exercise escrowCid DeliverTo with recipient = dealer
+         pure ()
 
--- Post-trade transparency: the regulator sees the executed trade — and only
+-- Post-trade transparency: the regulator sees the executed trade - and only
 -- the executed trade. Pre-trade flow (RFQ, losing quotes) stays dark to them.
 template TradeReport
   with

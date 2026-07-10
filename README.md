@@ -23,14 +23,17 @@ On Canton, "dealer B cannot see dealer A's quote" is not a cryptographic achieve
 ## How it works
 
 ```
-template RFQ         signatory buyer, observer invitedDealers
-                     — the market never sees it; the RFQ carries no price
-template Quote       signatory dealer, buyer — NO other observers
-                     — competing dealers never RECEIVE it (physically, not by policy)
-choice   Award       cheapest ask wins, paid the SECOND-cheapest price (Vickrey);
-                     atomic DvP: cash→dealer + asset→buyer in one transaction;
-                     losing quotes archived, never revealed
-template TradeReport observer regulator — post-trade only; pre-trade stays dark
+template RFQ             signatory buyer, observer invitedDealers
+                         — the market never sees it; the RFQ carries no price
+choice   SubmitQuote     dealer locks the asset into escrow + seals a quote
+template Quote           signatory dealer, buyer — NO other observers
+                         — competing dealers never RECEIVE it (physically, not by policy)
+template EscrowedHolding signatory issuer+dealer, observer buyer
+                         — asset locked while the quote is live; dealer can't double-sell
+choice   Award           cheapest ask wins, paid the SECOND-cheapest price (Vickrey);
+                         atomic DvP: cash→dealer + escrowed asset→buyer in one tx;
+                         losing quotes archived + escrow returned, never revealed
+template TradeReport     observer regulator — post-trade only; pre-trade stays dark
 ```
 
 Why Vickrey? Dealers can quote their true reserve price without shading — the winner is paid the runner-up's price. Fair price discovery *requires* sealed bids; on a transparent chain this needs ZK or FHE. Here it is ~40 lines of Daml.
@@ -49,9 +52,9 @@ daml test           # end-to-end: mint → RFQ → sealed quotes → Vickrey DvP
 
 ## Honest scope
 
-- **No hard escrow on quotes**: the dealer's asset stays in their wallet until settlement; if they move it after quoting, settlement fails cleanly. Production would archive-and-hold. <!-- ponytail: escrow-on-quote, add if judges ask -->
 - **Quote completeness is buyer-attested**: the buyer chooses which quotes to include in `Award` (like a real RFQ desk — best execution is a policy question, not enforced on-ledger). The Vickrey *pricing rule itself* is contract-enforced over the included set.
 - Simple self-contained `Holding` token, not CIP-0056 — the token standard is the stated next step.
+- Single-round sealed bids; no partial fills. One instrument per RFQ.
 
 ## License
 
