@@ -1,0 +1,152 @@
+-- Bisik — confidential multi-dealer RFQ OTC desk on Canton.
+-- Dealers whisper quotes to the buyer; competing dealers never receive them.
+-- Blindness is Canton sub-transaction privacy, not cryptography bolted on.
+module Bisik where
+
+import DA.Foldable (forA_)
+import DA.List (sortOn)
+
+-- A fungible position in one instrument. Used for both legs (asset and cash).
+template Holding
+  with
+    issuer : Party
+    owner : Party
+    instrument : Text
+    amount : Decimal
+  where
+    signatory issuer
+    observer owner
+    ensure amount > 0.0
+
+    choice Transfer : ContractId Holding
+      with newOwner : Party
+      controller owner
+      do create this with owner = newOwner
+
+    choice Split : (ContractId Holding, ContractId Holding)
+      with splitAmount : Decimal
+      controller owner
+      do assertMsg "splitAmount must be positive and below amount"
+           (splitAmount > 0.0 && splitAmount < amount)
+         part <- create this with amount = splitAmount
+         rest <- create this with amount = amount - splitAmount
+         pure (part, rest)
+
+-- Buyer requests quotes from a chosen dealer panel. The market never sees it;
+-- only invited dealers do. The RFQ carries no price information.
+template RFQ
+  with
+    buyer : Party
+    regulator : Party
+    invitedDealers : [Party]
+    instrument : Text
+    quantity : Decimal
+    payInstrument : Text
+  where
+    signatory buyer
+    observer invitedDealers
+    ensure quantity > 0.0 && not (null invitedDealers)
+
+    -- A dealer answers with a sealed quote. The created Quote is visible to
+    -- this dealer and the buyer ONLY — other dealers never receive it.
+    nonconsuming choice SubmitQuote : ContractId Quote
+      with
+        dealer : Party
+        price : Decimal          -- total ask for the full quantity
+        assetCid : ContractId Holding
+      controller dealer
+      do assertMsg "dealer not invited" (dealer `elem` invitedDealers)
+         assertMsg "price must be positive" (price > 0.0)
+         asset <- fetch assetCid
+         assertMsg "asset not owned by dealer" (asset.owner == dealer)
+         assertMsg "wrong instrument" (asset.instrument == instrument)
+         assertMsg "wrong quantity" (asset.amount == quantity)
+         create Quote with buyer; regulator; dealer; instrument; quantity
+                           payInstrument; price; assetCid
+
+    -- Buyer settles against the submitted quotes: cheapest ask wins, but is
+    -- paid the SECOND-cheapest price (reverse Vickrey), atomically DvP.
+    -- Losing quotes are archived without ever being revealed to anyone else.
+    choice Award : ContractId TradeReport
+      with
+        quoteCids : [ContractId Quote]
+        cashCid : ContractId Holding
+      controller buyer
+      do assertMsg "no quotes submitted" (not (null quoteCids))
+         quotes <- forA quoteCids \cid -> do
+           q <- fetch cid
+           assertMsg "quote does not match this RFQ"
+             (q.buyer == buyer && q.instrument == instrument
+              && q.quantity == quantity && q.payInstrument == payInstrument)
+           pure (cid, q)
+         let sorted = sortOn (\(_, q) -> q.price) quotes
+         let (winCid, winQ) = head sorted
+         let clearing = case sorted of
+               _ :: (_, second) :: _ -> second.price
+               _ -> winQ.price
+         forA_ (tail sorted) \(cid, _) -> exercise cid RejectQuote
+         exercise winCid SettleQuote with cashCid; clearingPrice = clearing
+
+    choice CancelRFQ : ()
+      controller buyer
+      do pure ()
+
+-- Sealed quote. Signatories: dealer + buyer (both bound). No observers:
+-- competing dealers and the regulator cannot see it — by ledger model, not policy.
+template Quote
+  with
+    buyer : Party
+    regulator : Party
+    dealer : Party
+    instrument : Text
+    quantity : Decimal
+    payInstrument : Text
+    price : Decimal
+    assetCid : ContractId Holding
+  where
+    signatory dealer, buyer
+
+    -- Atomic DvP: cash to dealer and asset to buyer in ONE transaction.
+    -- Dealer's transfer authority comes from being a Quote signatory.
+    choice SettleQuote : ContractId TradeReport
+      with
+        cashCid : ContractId Holding
+        clearingPrice : Decimal
+      controller buyer
+      do assertMsg "clearing below dealer ask" (clearingPrice >= price)
+         cash <- fetch cashCid
+         assertMsg "wrong cash instrument" (cash.instrument == payInstrument)
+         assertMsg "cash owned by buyer" (cash.owner == buyer)
+         assertMsg "insufficient cash" (cash.amount >= clearingPrice)
+         payCid <-
+           if cash.amount == clearingPrice
+             then pure cashCid
+             else fst <$> exercise cashCid Split with splitAmount = clearingPrice
+         _ <- exercise payCid Transfer with newOwner = dealer
+         _ <- exercise assetCid Transfer with newOwner = buyer
+         create TradeReport with
+           buyer; dealer; regulator; instrument; quantity; clearingPrice
+
+    -- Buyer declines (losing quotes in Award). Nothing was escrowed, nothing leaks.
+    choice RejectQuote : ()
+      controller buyer
+      do pure ()
+
+    -- Dealer walks away before award.
+    choice WithdrawQuote : ()
+      controller dealer
+      do pure ()
+
+-- Post-trade transparency: the regulator sees the executed trade — and only
+-- the executed trade. Pre-trade flow (RFQ, losing quotes) stays dark to them.
+template TradeReport
+  with
+    buyer : Party
+    dealer : Party
+    regulator : Party
+    instrument : Text
+    quantity : Decimal
+    clearingPrice : Decimal
+  where
+    signatory buyer, dealer
+    observer regulator
