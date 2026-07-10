@@ -1,0 +1,94 @@
+:root {
+  --bg: #0b0d10;
+  --panel: #14181d;
+  --panel-2: #1b2027;
+  --line: #262d36;
+  --ink: #e7ecf2;
+  --muted: #8b97a6;
+  --accent: #6ee7b7;
+  --accent-dim: #2b5a48;
+  --warn: #f0b45e;
+  --buyer: #7dd3fc;
+  --dealerA: #c4b5fd;
+  --dealerB: #fca5a5;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.mono, .pid, .list.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.topbar {
+  display: flex; align-items: center; gap: 18px;
+  padding: 14px 22px; border-bottom: 1px solid var(--line); background: var(--panel);
+}
+.brand { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.brand .dot { color: var(--accent); }
+.tag { color: var(--muted); font-style: italic; }
+.ledger { margin-left: auto; font-size: 12px; color: var(--muted); }
+.ledger.ok { color: var(--accent); }
+.ledger.err { color: var(--dealerB); }
+
+.desk {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+  background: var(--line); min-height: calc(100vh - 160px);
+}
+.panel { background: var(--panel); display: flex; flex-direction: column; }
+.panel[data-role="buyer"] { border-top: 3px solid var(--buyer); }
+.panel[data-role="dealerA"] { border-top: 3px solid var(--dealerA); }
+.panel[data-role="dealerB"] { border-top: 3px solid var(--dealerB); }
+
+.phead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--line);
+}
+.who { font-weight: 600; font-size: 15px; }
+.pid { color: var(--muted); font-size: 11px; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pbody { padding: 14px 16px; display: flex; flex-direction: column; gap: 18px; }
+
+.block h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.block h3 .hint { color: var(--muted); font-weight: 400; }
+.form { display: flex; flex-direction: column; gap: 8px; }
+.form label { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.form input {
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+  padding: 6px 8px; border-radius: 6px; width: 130px; font: inherit;
+}
+button {
+  background: var(--accent); color: #06231a; border: 0; border-radius: 7px;
+  padding: 8px 12px; font-weight: 600; cursor: pointer; font: inherit;
+}
+button:hover { filter: brightness(1.08); }
+button:disabled { background: var(--panel-2); color: var(--muted); cursor: not-allowed; }
+button.ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); }
+button.award { width: 100%; margin-top: 10px; }
+
+.list { display: flex; flex-direction: column; gap: 8px; }
+.empty { color: var(--muted); font-size: 12px; padding: 8px 0; }
+.card {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; font-size: 13px;
+}
+.card .price { font-weight: 700; font-size: 15px; }
+.card.win { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-dim) inset; }
+.card .row { display: flex; justify-content: space-between; }
+.card .sub { color: var(--muted); font-size: 11px; }
+
+.blind {
+  border: 1px dashed var(--line); border-radius: 8px; padding: 14px;
+  color: var(--muted); font-size: 12px; text-align: center; font-style: italic;
+}
+
+.foot { border-top: 1px solid var(--line); background: var(--panel); padding: 14px 22px; }
+.privacy-note { color: var(--muted); font-size: 12px; max-width: 900px; }
+.reg { margin-top: 8px; font-size: 12px; color: var(--warn); }
+
+.toast {
+  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+  padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0;
+  transition: opacity .2s; pointer-events: none; max-width: 80vw;
+}
+.toast.show { opacity: 1; }
+.toast.err { border-color: var(--dealerB); color: var(--dealerB); }

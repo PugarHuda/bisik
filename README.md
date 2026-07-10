@@ -43,11 +43,36 @@ Why Vickrey? Dealers can quote their true reserve price without shading — the 
 Two packages, so the deployable model DAR carries no test/script code:
 
 ```
-daml/Bisik.daml        model — the whole product (bisik-0.1.0.dar → deploy this)
+daml/Bisik.daml           model — the whole product (bisik-0.1.0.dar → deploy this)
 test/daml/BisikTest.daml  end-to-end script + privacy assertions
 test/daml/Init.daml       on-ledger seed: parties + an open RFQ (LocalNet/Devnet demo)
-multi-package.yaml     workspace
+web/                      the desk UI: 3 party views + JSON Ledger API proxy (Node stdlib)
+multi-package.yaml        workspace
 ```
+
+## Live demo (local ledger)
+
+Three terminals — a Canton sandbox with the JSON Ledger API, a seed, and the desk.
+Requires the Daml SDK 3.4 (`daml`), Java 21 (`JAVA_HOME`), and Node ≥ 20.
+
+```bash
+# 1) build + start a sandbox that serves the JSON Ledger API on :7575
+daml build --all
+daml sandbox --dar .daml/dist/bisik-0.1.0.dar --json-api-port 7575
+
+# 2) seed parties + an open RFQ with two sealed quotes
+daml script --dar test/.daml/dist/bisik-test-0.1.0.dar \
+  --script-name Init:initialize --ledger-host localhost --ledger-port 6865
+
+# 3) serve the desk (proxies to the ledger; open http://localhost:8080)
+cd web && npm start
+```
+
+The three columns are the same ledger seen by Buyer, Dealer A, and Dealer B.
+Watch Dealer B's column while Dealer A whispers a quote: nothing appears — the
+quote is never sent to Dealer B's node. Then Buyer awards and the Vickrey price
+settles atomically. Point the UI at Devnet instead by setting
+`LEDGER_JSON_URL` before `npm start`.
 
 ## Run it
 
