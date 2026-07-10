@@ -1,7 +1,10 @@
 sdk-version: 3.4.11
-name: bisik
+name: bisik-test
 version: 0.1.0
 source: daml
 dependencies:
   - daml-prim
   - daml-stdlib
+  - daml-script
+data-dependencies:
+  - ../.daml/dist/bisik-0.1.0.dar

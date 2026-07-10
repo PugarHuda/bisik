@@ -38,17 +38,40 @@ template TradeReport     observer regulator — post-trade only; pre-trade stays
 
 Why Vickrey? Dealers can quote their true reserve price without shading — the winner is paid the runner-up's price. Fair price discovery *requires* sealed bids; on a transparent chain this needs ZK or FHE. Here it is ~40 lines of Daml.
 
+## Layout
+
+Two packages, so the deployable model DAR carries no test/script code:
+
+```
+daml/Bisik.daml        model — the whole product (bisik-0.1.0.dar → deploy this)
+test/daml/BisikTest.daml  end-to-end script + privacy assertions
+test/daml/Init.daml       on-ledger seed: parties + an open RFQ (LocalNet/Devnet demo)
+multi-package.yaml     workspace
+```
+
 ## Run it
 
 ```bash
-daml build          # compiles to .daml/dist/bisik-0.1.0.dar
-daml test           # end-to-end: mint → RFQ → sealed quotes → Vickrey DvP
-                    # + privacy assertions (dealer B cannot query dealer A's quote)
+daml build --all    # bisik-0.1.0.dar (model) + bisik-test-0.1.0.dar
+cd test && daml test # testBisik: mint → RFQ → sealed quotes → Vickrey DvP
+                     # + privacy assertions (dealer B cannot query dealer A's quote)
 ```
 
-## Deployment
+## Deploy to Canton Devnet
 
-- **Canton Devnet**: _(deployment details / party IDs to be added on deploy)_
+```bash
+daml build --all
+# upload the model DAR to your validator's JSON Ledger API
+#   POST /v2/packages   (bisik-0.1.0.dar)
+# then seed a live RFQ + holdings against the participant:
+daml script --dar test/.daml/dist/bisik-test-0.1.0.dar \
+  --script-name Init:initialize \
+  --ledger-host <devnet-participant> --ledger-port <port>
+```
+
+Devnet needs a Super Validator sponsor + VPN (self-service on Devnet). Party IDs printed by `Init` go into the frontend `.env`.
+
+- **Deployed party/contract IDs**: _(added on deploy)_
 
 ## Honest scope
 
