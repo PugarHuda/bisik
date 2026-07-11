@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bisik — pitch</title>
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#14181d; --line:#262d36; --ink:#e7ecf2; --muted:#8b97a6;
+    --accent:#6ee7b7; --buyer:#7dd3fc; --dealerA:#c4b5fd; --dealerB:#fca5a5; --warn:#f0b45e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);
+    font:16px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .deck{height:100vh;overflow:hidden}
+  .slide{height:100vh;width:100vw;display:none;flex-direction:column;justify-content:center;
+    padding:6vh 9vw;position:relative}
+  .slide.on{display:flex}
+  h1{font-size:clamp(2rem,5vw,4rem);letter-spacing:-.02em;line-height:1.05}
+  h2{font-size:clamp(1.4rem,3.2vw,2.4rem);letter-spacing:-.02em;margin-bottom:.6em}
+  h1 .dot,h2 .dot{color:var(--accent)}
+  p,li{font-size:clamp(1rem,1.7vw,1.35rem);color:var(--ink)}
+  .lede{color:var(--muted);font-style:italic;margin-top:.8em;font-size:clamp(1.1rem,2vw,1.6rem)}
+  ul{margin:.6em 0 0 1.1em;display:flex;flex-direction:column;gap:.5em}
+  li::marker{color:var(--accent)}
+  .muted{color:var(--muted)}
+  .accent{color:var(--accent)}
+  .kicker{color:var(--accent);text-transform:uppercase;letter-spacing:.18em;font-size:.8rem;margin-bottom:1.4em}
+  table{border-collapse:collapse;margin-top:1em;font-size:clamp(.85rem,1.5vw,1.15rem)}
+  td,th{border:1px solid var(--line);padding:.5em .9em;text-align:left}
+  th{color:var(--muted);font-weight:600}
+  tr.you td{color:var(--accent);border-color:#2b5a48}
+  code{font-family:ui-monospace,Menlo,monospace;background:var(--panel);padding:.1em .4em;border-radius:5px;font-size:.85em}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:2.4em;align-items:center}
+  img{max-width:100%;border:1px solid var(--line);border-radius:10px}
+  .cap{color:var(--muted);font-size:.9rem;margin-top:.6em}
+  .flow{font-family:ui-monospace,Menlo,monospace;font-size:clamp(.8rem,1.5vw,1.1rem);
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1.2em 1.4em;white-space:pre-wrap;line-height:1.7}
+  .pagenum{position:absolute;bottom:3vh;right:4vw;color:var(--muted);font-size:.8rem}
+  .brandmark{position:absolute;top:3vh;left:4vw;font-weight:700;color:var(--muted);font-size:.9rem}
+  .brandmark .dot{color:var(--accent)}
+  .big{font-size:clamp(1.3rem,2.4vw,1.9rem);line-height:1.4}
+  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.2em .8em;color:var(--muted);font-size:.85rem;margin-right:.4em}
+  @media print{
+    .slide{display:flex !important;height:100vh;page-break-after:always;break-after:page}
+    .deck{height:auto;overflow:visible}
+    .nav{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <section class="slide on">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <h1>bisik<span class="dot">.</span></h1>
+    <p class="lede">You whisper quotes. The market hears nothing.</p>
+    <p style="margin-top:1.6em" class="big">A confidential multi-dealer RFQ desk for OTC block trades — native on Canton.</p>
+    <p class="muted" style="margin-top:1.2em">Build on Canton Hackathon · Private DeFi &amp; Capital Markets · team “Diam”</p>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <div class="kicker">The problem</div>
+    <h2>You can’t trade size in the open.</h2>
+    <ul>
+      <li>Post a $4M block on a public venue → the order and the competing bids leak.</li>
+      <li>Front-running, market impact, leaked alpha the moment it hits the mempool.</li>
+      <li>Today’s fix: OTC desks &amp; chat rooms — trust a middleman, no clean audit trail.</li>
+      <li class="accent">$30B+/month still trades this way.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <div class="kicker">What Bisik is</div>
+    <h2>A sealed-bid RFQ desk where fairness is enforced, not promised.</h2>
+    <ul>
+      <li>Buyer requests quotes from a <span class="accent">chosen dealer panel</span> — the market never sees the RFQ.</li>
+      <li>Each dealer’s quote is <span class="accent">sealed</span> — rival dealers never receive it.</li>
+      <li>Cheapest ask wins, paid the <span class="accent">second price</span> (Vickrey) — atomic delivery-versus-payment.</li>
+      <li>A regulator sees the executed trade — and <span class="accent">only</span> that.</li>
+    </ul>
+    <p class="lede">Confidential pre-trade, auditable post-trade.</p>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <div class="kicker">The demo — one ledger, three views</div>
+    <img src="../media/03-dealerA-quoted-dealerB-blind.png"
+      alt="Dealer A quoted; Dealer B's column is blank" />
+    <p class="cap">Dealer A has whispered a quote. <span class="accent">Dealer B’s column shows nothing</span> — the quote was never sent to their node. Not hidden in the UI; never transmitted.</p>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <div class="kicker">How it works</div>
+    <div class="flow">RFQ            buyer → invited dealers · no price on it
+  ↓
+SubmitQuote    dealer locks the asset into escrow + seals a Quote
+  ↓            (signatory: dealer + buyer · NO other observers)
+Award          cheapest ask wins, paid the 2nd price · atomic DvP
+  ↓            cash → dealer + asset → buyer, both legs or neither
+TradeReport    regulator sees the settled trade — post-trade only</div>
+    <p class="lede">Privacy = Canton sub-transaction privacy. Fairness = the Vickrey rule, in the contract. Settlement = atomic DvP.</p>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <div class="kicker">Why Canton — the differentiator</div>
+    <h2>I built this exact desk four times before.</h2>
+    <table>
+      <tr><th>Build</th><th>Chain</th><th>Privacy machinery I had to write</th></tr>
+      <tr><td>Diam</td><td>iExec Nox</td><td>TEE confidential compute</td></tr>
+      <tr><td>Segel</td><td>Stellar</td><td>two Groth16 ZK circuits, hand-rolled Poseidon</td></tr>
+      <tr><td>Sealed Pair</td><td>Sui</td><td>Walrus commitments + Seal encryption</td></tr>
+      <tr><td>Samar</td><td>Zama fhEVM</td><td>fully-homomorphic encryption</td></tr>
+      <tr class="you"><td>Bisik</td><td>Canton</td><td>none — it’s the ledger’s data model</td></tr>
+    </table>
+    <p class="lede">“Rivals can’t see the quote” is <code>signatory</code>/<code>observer</code>. ~40 lines of Daml replace thousands of lines of cryptography.</p>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <div class="kicker">Real-world fit</div>
+    <h2>This is how OTC actually works.</h2>
+    <ul>
+      <li>Multi-dealer RFQ is the Tradeweb / Bloomberg institutional workflow.</li>
+      <li><span class="accent">Tradeweb is a Canton Super Validator</span> — the workflow, native on the network they help run.</li>
+      <li>Privacy guaranteed by the protocol; a regulator-observable audit trail.</li>
+      <li>Maps directly to the track: “OTC trading workflows”, institutional relevance.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <div class="kicker">Technical execution</div>
+    <h2>Built, tested, and live.</h2>
+    <ul>
+      <li>Clean two-package Daml — the deployable model DAR carries no test/script bloat.</li>
+      <li>Escrow-backed atomic DvP; reverse-Vickrey pricing enforced on-ledger.</li>
+      <li>End-to-end <code>daml test</code> with explicit <span class="accent">privacy assertions</span> (Dealer B cannot query Dealer A’s quote).</li>
+      <li>Web desk over the JSON Ledger API — verified rendering end-to-end.</li>
+      <li><span class="accent">Deployed live on Canton Devnet</span> (5N validator, Canton 3.5.7) — privacy proven on-ledger.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <div class="kicker">Honest scope · roadmap</div>
+    <h2>What’s next.</h2>
+    <ul>
+      <li>Buyer-attested quote set; single-round, no partial fills today.</li>
+      <li>Simple <code>Holding</code> token → <span class="accent">CIP-0056</span> token standard for wallet interop.</li>
+      <li>MPC so the settler can’t see losing bids either.</li>
+      <li>Multi-instrument panels, streaming RFQ.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <h1>bisik<span class="dot">.</span></h1>
+    <p class="lede">The confidential OTC desk that finally didn’t need a cryptography stack — because Canton already is one.</p>
+    <p style="margin-top:1.6em">
+      <span class="pill">live on Canton Devnet</span>
+      <span class="pill">github.com/PugarHuda/bisik</span>
+      <span class="pill">3-view live demo</span>
+    </p>
+  </section>
+
+</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  const show = (n) => {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('on', k === i));
+    let tag = document.querySelector('.pagenum');
+    if (!tag) { tag = document.createElement('div'); tag.className = 'pagenum'; document.body.appendChild(tag); }
+    tag.textContent = (i + 1) + ' / ' + slides.length;
+  };
+  addEventListener('keydown', (e) => {
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) { show(i + 1); e.preventDefault(); }
+    if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { show(i - 1); e.preventDefault(); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+  });
+  addEventListener('click', (e) => { if (!e.target.closest('a')) show(i + 1); });
+  show(0);
+</script>
+</body>
+</html>

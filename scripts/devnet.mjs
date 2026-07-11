@@ -214,10 +214,26 @@ async function verify() {
   }
 }
 
+// Archive duplicate buyer USDC holdings left by 503-retries; keep exactly one.
+async function cleanup() {
+  const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
+  const ev = await acsAs(p.buyer);
+  const cash = ev.filter((e) => e.templateId.endsWith(':Bisik:Holding')
+    && e.createArgument.owner === p.buyer && e.createArgument.instrument === 'USDC');
+  console.log('buyer USDC holdings:', cash.length);
+  for (const c of cash.slice(1)) {
+    await submit(p.cashIssuer, { ExerciseCommand: { templateId: `${PKG}:Bisik:Holding`,
+      contractId: c.contractId, choice: 'Archive', choiceArgument: {} } });
+    console.log('  archived duplicate', c.contractId.slice(0, 18) + '…');
+  }
+  console.log('done — buyer now holds one USDC position');
+}
+
 const cmd = process.argv[2];
 (async () => {
   ENV = await loadEnv();
   if (cmd === 'probe') await probe();
+  else if (cmd === 'cleanup') await cleanup();
   else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.1.0.dar');
   else if (cmd === 'allocate-one') console.log(await allocateOne(process.argv[3] ?? 'bisik-probe-1'));
   else if (cmd === 'allocate') await allocate();

@@ -46,6 +46,8 @@ const submit = async (party, cmd) => {
 };
 
 const fmt = (n) => Number(n).toLocaleString('en-US');
+// Readable dealer name: the party id-hint (before ::), e.g. "bisik-dealerA-1" or "DealerA".
+const dealerLabel = (party) => party.split('::')[0];
 
 let toastEl;
 const toast = (msg, err = false) => {
@@ -98,7 +100,7 @@ function renderBuyer(mine) {
     const clearing = Number((sorted[1] ?? sorted[0]).arg.price);
     box.innerHTML = sorted.map((c) => `
       <div class="card ${c.cid === winCid ? 'win' : ''}">
-        <div class="row"><span>${c.arg.dealer.split('-')[0]}</span><span class="price">${fmt(c.arg.price)} ${c.arg.payInstrument}</span></div>
+        <div class="row"><span>${dealerLabel(c.arg.dealer)}</span><span class="price">${fmt(c.arg.price)} ${c.arg.payInstrument}</span></div>
         <div class="sub">${c.arg.instrument} · ${fmt(c.arg.quantity)}${c.cid === winCid ? ' · winner, pays 2nd price ' + fmt(clearing) : ''}</div>
       </div>`).join('');
 

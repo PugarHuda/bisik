@@ -105,6 +105,10 @@ cd web && LEDGER_JSON_URL=https://ledger-api.validator.devnet.sandbox.fivenorth.
   LEDGER_AUDIENCE=validator-devnet-m2m LEDGER_SCOPE=daml_ledger_api npm start
 ```
 
+<p align="center"><img src="media/devnet-money-shot.png" width="880"
+  alt="The desk reading live Canton Devnet: each dealer sees only its own sealed quote" /></p>
+<p align="center"><em>The desk reading live Canton Devnet — real party IDs. Each dealer sees only its own sealed quote.</em></p>
+
 **Live deployment facts**
 - Ledger API: `https://ledger-api.validator.devnet.sandbox.fivenorth.io`
 - Model package id: `906f2697a2d0db695c3cf6ad8b28d8960507cd18ca08689f4e995013fb3add3f`
@@ -126,6 +130,13 @@ regulator  {}
 - **Quote completeness is buyer-attested**: the buyer chooses which quotes to include in `Award` (like a real RFQ desk — best execution is a policy question, not enforced on-ledger). The Vickrey *pricing rule itself* is contract-enforced over the included set.
 - Simple self-contained `Holding` token, not CIP-0056 — the token standard is the stated next step.
 - Single-round sealed bids; no partial fills. One instrument per RFQ.
+
+## Submission assets
+
+- **Pitch deck** — `slides/index.html` (open in a browser; arrow keys to navigate, print → PDF to export)
+- **Demo storyboard** — `DEMO-SCRIPT.md` (3-min video, the money shot beat by beat)
+- **Screen capture** — `media/` (per-step screenshots + a silent video to narrate over)
+- **Deck outline** — `DECK.md`
 
 ## License
 
