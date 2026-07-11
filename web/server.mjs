@@ -39,12 +39,14 @@ async function bearer() {
   throw new Error('token fetch failed');
 }
 
-// Known party IDs for the frontend (DevNet has 10k parties → prefix discovery is unreliable).
+// Known party IDs for the frontend. Only used in DevNet mode (10k parties there
+// make prefix discovery unreliable). On the local sandbox we leave this empty so
+// the frontend discovers its parties by id-hint prefix instead.
 let PARTIES = {};
-try {
-  const pf = process.env.LEDGER_PARTIES ?? join(DIR, '..', 'scripts', 'devnet.parties.json');
-  PARTIES = JSON.parse(readFileSync(pf, 'utf8'));
-} catch { PARTIES = {}; }
+const partiesFile = process.env.LEDGER_PARTIES ?? (OAUTH ? join(DIR, '..', 'scripts', 'devnet.parties.json') : null);
+if (partiesFile) {
+  try { PARTIES = JSON.parse(readFileSync(partiesFile, 'utf8')); } catch { PARTIES = {}; }
+}
 
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };

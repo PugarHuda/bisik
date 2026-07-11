@@ -1,0 +1,20 @@
+{
+  "name": "bisik",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bisik — confidential multi-dealer RFQ OTC desk on Canton",
+  "scripts": {
+    "demo": "node scripts/demo-local.mjs",
+    "demo:full": "node scripts/demo-local.mjs --full",
+    "record": "node scripts/record.mjs",
+    "devnet:seed": "node scripts/devnet.mjs seed",
+    "devnet:verify": "node scripts/devnet.mjs verify"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

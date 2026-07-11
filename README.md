@@ -52,19 +52,25 @@ multi-package.yaml        workspace
 
 ## Live demo (local ledger)
 
-Three terminals — a Canton sandbox with the JSON Ledger API, a seed, and the desk.
-Requires the Daml SDK 3.4 (`daml`), Java 21 (`JAVA_HOME`), and Node ≥ 20.
+One command boots a Canton sandbox, seeds it, and serves the desk. Requires the
+Daml SDK 3.4 (`daml`), Java 21, and Node ≥ 20.
 
 ```bash
-# 1) build + start a sandbox that serves the JSON Ledger API on :7575
+npm run demo          # build → sandbox → seed (holdings) → desk at http://localhost:8080
+npm run demo:full     # same, but pre-seeds an RFQ + two sealed quotes
+npm run record        # drive the money shot with Playwright → media/ screenshots + video
+```
+
+<p align="center"><img src="media/03-dealerA-quoted-dealerB-blind.png" width="880"
+  alt="Dealer A has quoted; Dealer B's column shows nothing — the quote was never sent to their node" /></p>
+
+Or run the three pieces by hand:
+
+```bash
 daml build --all
 daml sandbox --dar .daml/dist/bisik-0.1.0.dar --json-api-port 7575
-
-# 2) seed parties + an open RFQ with two sealed quotes
 daml script --dar test/.daml/dist/bisik-test-0.1.0.dar \
   --script-name Init:initialize --ledger-host localhost --ledger-port 6865
-
-# 3) serve the desk (proxies to the ledger; open http://localhost:8080)
 cd web && npm start
 ```
 
