@@ -24,8 +24,9 @@ On Canton, "dealer B cannot see dealer A's quote" is not a cryptographic achieve
 
 ```
 template RFQ             signatory buyer, observer invitedDealers
-                         — the market never sees it; the RFQ carries no price
+                         — the market never sees it; no price; optional deadline
 choice   SubmitQuote     dealer locks the asset into escrow + seals a quote
+                         — rejected once the ledger passes the RFQ's deadline
 template Quote           signatory dealer, buyer — NO other observers
                          — competing dealers never RECEIVE it (physically, not by policy)
 template EscrowedHolding signatory issuer+dealer, observer buyer
@@ -43,7 +44,7 @@ Why Vickrey? Dealers can quote their true reserve price without shading — the 
 Two packages, so the deployable model DAR carries no test/script code:
 
 ```
-daml/Bisik.daml           model — the whole product (bisik-0.3.0.dar → deploy this)
+daml/Bisik.daml           model — the whole product (bisik-0.4.0.dar → deploy this)
 test/daml/BisikTest.daml  end-to-end script + privacy assertions
 test/daml/Init.daml       on-ledger seed: parties + an open RFQ (LocalNet/Devnet demo)
 web/                      the desk UI: 3 party views + JSON Ledger API proxy (Node stdlib)
@@ -69,7 +70,7 @@ Or run the three pieces by hand:
 
 ```bash
 daml build --all
-daml sandbox --dar .daml/dist/bisik-0.3.0.dar --json-api-port 7575
+daml sandbox --dar .daml/dist/bisik-0.4.0.dar --json-api-port 7575
 daml script --dar test/.daml/dist/bisik-test-0.1.0.dar \
   --script-name Init:initialize --ledger-host localhost --ledger-port 6865
 cd web && npm start
@@ -84,7 +85,7 @@ settles atomically. Point the UI at Devnet instead by setting
 ## Run it
 
 ```bash
-daml build --all    # bisik-0.3.0.dar (model) + bisik-test-0.1.0.dar
+daml build --all    # bisik-0.4.0.dar (model) + bisik-test-0.1.0.dar
 cd test && daml test # testBisik: mint → RFQ → sealed quotes → Vickrey DvP
                      # + privacy assertions (dealer B cannot query dealer A's quote)
 ```
@@ -97,7 +98,7 @@ DAR, allocates + grants parties, and seeds a live RFQ with two sealed quotes.
 
 ```bash
 cp scripts/.env.devnet.example scripts/.env.devnet   # fill client secret (Encode #general)
-node scripts/devnet.mjs upload .daml/dist/bisik-0.3.0.dar
+node scripts/devnet.mjs upload .daml/dist/bisik-0.4.0.dar
 node scripts/devnet.mjs seed        # parties + holdings + RFQ + 2 sealed quotes
 node scripts/devnet.mjs verify      # prints per-party visibility (the privacy proof)
 # then serve the UI against Devnet — the server reads the gitignored env file, so
@@ -111,17 +112,17 @@ cd web && LEDGER_ENV_FILE=../scripts/.env.devnet npm start
 
 **Live deployment facts**
 - Ledger API: `https://ledger-api.validator.devnet.sandbox.fivenorth.io`
-- Model package id (`bisik` v0.3.0): `89a5666b5d26c103f052daf4578cfce2819300410d6f7444e1065e9c2baa462a`
-- Parties (shared namespace `…::1220a14ca128…`): `bisik-v3-buyer`, `bisik-v3-dealerA`,
-  `bisik-v3-dealerB`, `bisik-v3-regulator`, `bisik-v3-cashissuer`, `bisik-v3-bondissuer`
+- Model package id (`bisik` v0.4.0): `bf5d9a45552353be29cf4180d9cc7465c5fd0f87822b016b9a0da53cba4948f6`
+- Parties (shared namespace `…::1220a14ca128…`): `bisik-v4-buyer`, `bisik-v4-dealerA`,
+  `bisik-v4-dealerB`, `bisik-v4-regulator`, `bisik-v4-cashissuer`, `bisik-v4-bondissuer`
 - On-ledger `verify` result — Dealer A and Dealer B each see **only their own**
   Quote; the Regulator sees nothing pre-trade. Privacy proven on Devnet, not sandbox.
 
 `verify` on Devnet prints:
 ```
-buyer      {"Holding":1,"RFQ":1,"EscrowedHolding":2,"Quote":2} quotes from: bisik-v3-dealerA,bisik-v3-dealerB
-dealerA    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v3-dealerA
-dealerB    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v3-dealerB
+buyer      {"Holding":1,"RFQ":1,"EscrowedHolding":2,"Quote":2} quotes from: bisik-v4-dealerA,bisik-v4-dealerB
+dealerA    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v4-dealerA
+dealerB    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v4-dealerB
 regulator  {}
 ```
 

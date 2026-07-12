@@ -79,6 +79,7 @@ template RFQ
     payInstrument : Text
     assetIssuer : Optional Party -- if set, the asset leg must be issued by this party
     payIssuer : Optional Party   -- if set, the cash leg must be issued by this party
+    deadline : Optional Time     -- if set, quotes are rejected once the ledger passes it
   where
     signatory buyer
     observer invitedDealers
@@ -95,6 +96,8 @@ template RFQ
       controller dealer
       do assertMsg "dealer not invited" (dealer `elem` invitedDealers)
          assertMsg "price must be positive" (price > 0.0)
+         now <- getTime
+         assertMsg "RFQ has expired" (optional True (now <) deadline)
          asset <- fetch assetCid
          assertMsg "asset not owned by dealer" (asset.owner == dealer)
          assertMsg "wrong instrument" (asset.instrument == instrument)

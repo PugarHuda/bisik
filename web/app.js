@@ -239,7 +239,8 @@ async function createRFQ() {
       await submit(P.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
         buyer: P.buyer, regulator: P.regulator, invitedDealers: [P.dealerA, P.dealerB],
         instrument, quantity, payInstrument,
-        assetIssuer: CFG_PARTIES.bondIssuer ?? null, payIssuer: CFG_PARTIES.cashIssuer ?? null } } });
+        assetIssuer: CFG_PARTIES.bondIssuer ?? null, payIssuer: CFG_PARTIES.cashIssuer ?? null,
+        deadline: new Date(Date.now() + 86400000).toISOString() } } }); // open for 24h
       toast('RFQ sent to the dealer panel'); refresh();
     } catch (e) { toast(e.message, true); }
   });

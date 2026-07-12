@@ -125,7 +125,7 @@ async function demo() {
   // A human/other-system posts the RFQ inviting our market-maker agent.
   const rfq = cidOf(await submit(buyer, { CreateCommand: { templateId: `${pkg}:Bisik:RFQ`, createArguments: {
     buyer, regulator, invitedDealers: [dealer], instrument: 'TBOND30', quantity: '1000.0', payInstrument: 'USDC',
-    assetIssuer: bondIssuer, payIssuer: cashIssuer } } }));
+    assetIssuer: bondIssuer, payIssuer: cashIssuer, deadline: '2030-01-01T00:00:00Z' } } }));
   console.log('· a buyer posted an RFQ (TBOND30 ×1000), inviting the market-maker\n');
 
   console.log('agent watching…');

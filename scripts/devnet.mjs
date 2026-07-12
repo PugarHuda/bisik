@@ -1,7 +1,7 @@
 // Bisik DevNet deploy/seed against the shared 5N hackathon validator.
 // Reads scripts/.env.devnet (gitignored). Node >= 20.
 //   node scripts/devnet.mjs probe
-//   node scripts/devnet.mjs upload .daml/dist/bisik-0.3.0.dar
+//   node scripts/devnet.mjs upload .daml/dist/bisik-0.4.0.dar
 //   node scripts/devnet.mjs allocate
 //   node scripts/devnet.mjs seed
 import { readFile, writeFile } from 'node:fs/promises';
@@ -99,8 +99,8 @@ const USER = '6';
 // v2 party set — isolates this deployment's (new package) contracts from any
 // earlier ones on the shared validator, so party queries return only our data.
 const HINTS = {
-  buyer: 'bisik-v3-buyer', dealerA: 'bisik-v3-dealerA', dealerB: 'bisik-v3-dealerB',
-  regulator: 'bisik-v3-regulator', cashIssuer: 'bisik-v3-cashissuer', bondIssuer: 'bisik-v3-bondissuer',
+  buyer: 'bisik-v4-buyer', dealerA: 'bisik-v4-dealerA', dealerB: 'bisik-v4-dealerB',
+  regulator: 'bisik-v4-regulator', cashIssuer: 'bisik-v4-cashissuer', bondIssuer: 'bisik-v4-bondissuer',
 };
 
 async function namespace() {
@@ -111,7 +111,7 @@ async function namespace() {
 }
 
 async function allocateOne(hint) {
-  const r = await api('/v2/parties', { method: 'POST', json: { partyIdHint: hint, identityProviderId: '' } });
+  const r = await api('/v2/parties', { method: 'POST', retry: true, json: { partyIdHint: hint, identityProviderId: '' } });
   if (r.status === 200) return r.data?.partyDetails?.party;
   const cause = JSON.stringify(r.data);
   if (cause.includes('already allocated') || cause.includes('already exists')) {
@@ -147,9 +147,9 @@ async function allocate() {
   console.log('wrote scripts/devnet.parties.json');
 }
 
-// Main package id of .daml/dist/bisik-0.3.0.dar. Regenerate after a model change
-// with: daml damlc inspect-dar --json .daml/dist/bisik-0.3.0.dar  (or set BISIK_PKG).
-const PKG = process.env.BISIK_PKG ?? '89a5666b5d26c103f052daf4578cfce2819300410d6f7444e1065e9c2baa462a';
+// Main package id of .daml/dist/bisik-0.4.0.dar. Regenerate after a model change
+// with: daml damlc inspect-dar --json .daml/dist/bisik-0.4.0.dar  (or set BISIK_PKG).
+const PKG = process.env.BISIK_PKG ?? 'bf5d9a45552353be29cf4180d9cc7465c5fd0f87822b016b9a0da53cba4948f6';
 let CID = 0;
 async function submit(actAs, command) {
   const commandId = `bisik-${Date.now()}-${CID++}`; // stable across retries → dedup on the ledger
@@ -160,9 +160,10 @@ async function submit(actAs, command) {
     } });
     if (r.ok) return r.data;
     last = `submit ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`;
-    if (![503, 429, 500, 502, 504].includes(r.status)) throw new Error(last);
+    // 409 SEQUENCER_BACKPRESSURE = transient overload on the shared validator.
+    if (![409, 503, 429, 500, 502, 504].includes(r.status)) throw new Error(last);
     process.stdout.write(` (retry ${r.status})`);
-    await new Promise((res) => setTimeout(res, 1500 * (i + 1)));
+    await new Promise((res) => setTimeout(res, 2000 * (i + 1)));
   }
   throw new Error('gave up: ' + last);
 }
@@ -202,7 +203,8 @@ async function seed() {
   const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
     buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
     instrument: 'TBOND30', quantity: '1000.0', payInstrument: 'USDC',
-    assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer } } }));
+    assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer,
+    deadline: '2030-01-01T00:00:00Z' } } }));
   console.log('RFQ live:', rfq.slice(0, 24) + '…');
 
   const quote = (dealer, price, assetCid) => ({ ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`,
@@ -256,7 +258,7 @@ const cmd = process.argv[2];
   ENV = await loadEnv();
   if (cmd === 'probe') await probe();
   else if (cmd === 'cleanup') await cleanup();
-  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.3.0.dar');
+  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.4.0.dar');
   else if (cmd === 'allocate-one') console.log(await allocateOne(process.argv[3] ?? 'bisik-probe-1'));
   else if (cmd === 'allocate') await allocate();
   else if (cmd === 'seed') await seed();

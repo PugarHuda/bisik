@@ -5,8 +5,10 @@
 module BisikTest where
 
 import DA.Assert ((===))
+import DA.Date (Month(Jan), date)
 import DA.List (sort)
 import DA.Optional (isNone)
+import DA.Time (days, time)
 import Daml.Script
 import Bisik
 
@@ -32,12 +34,18 @@ mintBond : Env -> Party -> Script (ContractId Holding)
 mintBond e dealer = submit e.bondIssuer do
   createCmd Holding with issuer = e.bondIssuer; owner = dealer; instrument = "TBOND30"; amount = 1000.0
 
+-- A far-future deadline so the existing tests (which quote at ledger epoch) are
+-- unaffected; the deadline behaviour has its own test below.
+farFuture : Time
+farFuture = time (date 2100 Jan 1) 0 0 0
+
 openRfq : Env -> [Party] -> Script (ContractId RFQ)
 openRfq e dealers = submit e.buyer do
   createCmd RFQ with
     buyer = e.buyer; regulator = e.regulator; invitedDealers = dealers
     instrument = "TBOND30"; quantity = 1000.0; payInstrument = "USDC"
     assetIssuer = Some e.bondIssuer; payIssuer = Some e.cashIssuer
+    deadline = Some farFuture
 
 ownedBy : Party -> [(a, Holding)] -> [(Text, Decimal)]
 ownedBy p hs = sort [(h.instrument, h.amount) | (_, h) <- hs, h.owner == p]
@@ -175,6 +183,23 @@ testCounterfeitAssetRejected = do
     createCmd Holding with issuer = dealerA; owner = dealerA; instrument = "TBOND30"; amount = 1000.0
   rfq <- openRfq e [dealerA]
   submitMustFail dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = fakeBond
+
+-- A dealer cannot quote after the RFQ's deadline has passed.
+testQuoteAfterDeadlineRejected : Script ()
+testQuoteAfterDeadlineRejected = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  bondA <- mintBond e dealerA
+  -- Ledger time starts at epoch; set the deadline one day out.
+  rfq <- submit e.buyer do
+    createCmd RFQ with
+      buyer = e.buyer; regulator = e.regulator; invitedDealers = [dealerA]
+      instrument = "TBOND30"; quantity = 1000.0; payInstrument = "USDC"
+      assetIssuer = Some e.bondIssuer; payIssuer = Some e.cashIssuer
+      deadline = Some (time (date 1970 Jan 2) 0 0 0)
+  passTime (days 2) -- now past the deadline
+  submitMustFail dealerA do
+    exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
 
 -- The buyer cannot settle with self-issued counterfeit cash.
 testCounterfeitCashRejected : Script ()

@@ -1,8 +1,8 @@
 {
-  "buyer": "bisik-v3-buyer::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
-  "dealerA": "bisik-v3-dealerA::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
-  "dealerB": "bisik-v3-dealerB::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
-  "regulator": "bisik-v3-regulator::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
-  "cashIssuer": "bisik-v3-cashissuer::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
-  "bondIssuer": "bisik-v3-bondissuer::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8"
+  "buyer": "bisik-v4-buyer::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
+  "dealerA": "bisik-v4-dealerA::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
+  "dealerB": "bisik-v4-dealerB::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
+  "regulator": "bisik-v4-regulator::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
+  "cashIssuer": "bisik-v4-cashissuer::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
+  "bondIssuer": "bisik-v4-bondissuer::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8"
 }
