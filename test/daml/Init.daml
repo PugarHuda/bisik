@@ -54,6 +54,32 @@ holdingsOnly = do
 initialize : Script Parties
 initialize = do
   (p, bondA, bondB) <- setup
+
+  -- A PRIOR completed trade on a separate instrument (GILT10), fully settled via
+  -- Award, so the regulator's post-trade audit trail is non-empty in the demo —
+  -- showing both halves of the story at once: sealed pre-trade + auditable post-trade.
+  settleCash <- submit p.cashIssuer do
+    createCmd Holding with issuer = p.cashIssuer; owner = p.buyer; instrument = "USDC"; amount = 300000.0
+  giltA <- submit p.bondIssuer do
+    createCmd Holding with issuer = p.bondIssuer; owner = p.dealerA; instrument = "GILT10"; amount = 100.0
+  giltB <- submit p.bondIssuer do
+    createCmd Holding with issuer = p.bondIssuer; owner = p.dealerB; instrument = "GILT10"; amount = 100.0
+  giltRfq <- submit p.buyer do
+    createCmd RFQ with
+      buyer = p.buyer; regulator = p.regulator
+      invitedDealers = [p.dealerA, p.dealerB]
+      instrument = "GILT10"; quantity = 100.0; payInstrument = "USDC"
+      assetIssuer = Some p.bondIssuer; payIssuer = Some p.cashIssuer
+      deadline = Some (time (date 2030 Jan 1) 0 0 0)
+  gqA <- submit p.dealerA do
+    exerciseCmd giltRfq SubmitQuote with dealer = p.dealerA; price = 190000.0; assetCid = giltA
+  gqB <- submit p.dealerB do
+    exerciseCmd giltRfq SubmitQuote with dealer = p.dealerB; price = 195000.0; assetCid = giltB
+  -- Cheapest ask (dealerA) wins, paid the second price (195000) — atomic DvP, TradeReport → regulator.
+  _ <- submit p.buyer do
+    exerciseCmd giltRfq Award with quoteCids = [gqA, gqB]; cashCid = settleCash
+
+  -- The LIVE RFQ for the pre-award money shot: TBOND30 + two sealed quotes, un-awarded.
   rfq <- submit p.buyer do
     createCmd RFQ with
       buyer = p.buyer; regulator = p.regulator

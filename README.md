@@ -56,12 +56,12 @@ multi-package.yaml        workspace
 
 ## Hosted demo (live Devnet, read-only)
 
-**[bisik-eight.vercel.app](https://bisik-eight.vercel.app)** — the desk served over
-live Canton Devnet state. All three party views are real: the buyer sees both sealed
-quotes, each dealer sees only its own, the regulator sees nothing pre-trade. Hosted
-via a serverless proxy that forwards **reads only** (the privileged token stays
-server-side); command submission is disabled on the public URL. To drive the full
-flow yourself, run it locally:
+**[bisik-eight.vercel.app](https://bisik-eight.vercel.app)** — a landing page → **Open the
+desk** ([/app](https://bisik-eight.vercel.app/app)) serves the desk over live Canton
+Devnet state. All three party views are real: the buyer sees both sealed quotes, each
+dealer sees only its own, the regulator sees nothing pre-trade. Hosted via a serverless
+proxy that forwards **reads only** (the privileged token stays server-side); command
+submission is disabled on the public URL. To drive the full flow yourself, run it locally:
 
 ## Live demo (local ledger)
 

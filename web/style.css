@@ -94,3 +94,46 @@ button.award { width: 100%; margin-top: 10px; }
 }
 .toast.show { opacity: 1; }
 .toast.err { border-color: var(--dealerB); color: var(--dealerB); }
+
+/* ---- app shell (app.html): Segel-style sidebar + main ---- */
+body.app { display: grid; grid-template-columns: 236px 1fr; min-height: 100vh; }
+.side {
+  background: var(--panel); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 20px;
+  padding: 20px 16px; position: sticky; top: 0; height: 100vh;
+}
+.side-brand { font-size: 21px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); text-decoration: none; }
+.side-brand .dot { color: var(--accent); }
+.side-net { font-size: 10.5px; letter-spacing: .12em; color: var(--muted); line-height: 1.7; }
+.side-net span { color: #5b6673; }
+.side-nav { display: flex; flex-direction: column; gap: 2px; }
+.side-nav a {
+  display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 8px;
+  color: var(--muted); font-size: 13.5px; text-decoration: none;
+}
+.side-nav a .ic { width: 16px; text-align: center; opacity: .8; font-size: 13px; }
+.side-nav a:hover { background: var(--panel-2); color: var(--ink); }
+.side-nav a.on { background: var(--panel-2); color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); }
+.side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.side .ledger {
+  margin: 0; font-size: 11px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; background: var(--panel-2);
+}
+.side .ledger::before { content: "● "; color: var(--warn); }
+.side .ledger.ok::before { color: var(--accent); }
+.side .ledger.err::before { color: var(--dealerB); }
+.side-lens { font-size: 11px; color: #5b6673; line-height: 1.5; }
+
+.main { display: flex; flex-direction: column; min-width: 0; }
+body.app .topbar { justify-content: space-between; }
+.topbar-cta { color: var(--muted); font-size: 12px; text-decoration: none; }
+.topbar-cta:hover { color: var(--ink); }
+body.app .desk { min-height: 0; flex: 1; }
+
+@media (max-width: 760px) {
+  body.app { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .side-net, .side-lens { display: none; }
+  .side-nav { flex-direction: row; flex-wrap: wrap; margin-left: auto; }
+  .side-foot { margin: 0; }
+}

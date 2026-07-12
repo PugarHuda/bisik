@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bisik — the desk</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body class="app">
+<aside class="side">
+  <a class="side-brand" href="index.html">bisik<span class="dot">.</span></a>
+  <div class="side-net">CANTON · DEVNET<br><span>JSON Ledger API</span></div>
+  <nav class="side-nav">
+    <a class="on" href="app.html"><span class="ic">▤</span> The desk</a>
+    <a href="index.html#how"><span class="ic">◇</span> How it works</a>
+    <a href="index.html#model"><span class="ic">◆</span> The model</a>
+    <a href="index.html#lineage"><span class="ic">⑆</span> Why Canton</a>
+    <a href="https://github.com/PugarHuda/bisik" target="_blank" rel="noopener"><span class="ic">↗</span> GitHub</a>
+    <a href="https://github.com/PugarHuda/bisik#readme" target="_blank" rel="noopener"><span class="ic">≡</span> Docs</a>
+  </nav>
+  <div class="side-foot">
+    <div class="ledger" id="ledger-status">connecting…</div>
+    <div class="side-lens">Three party lenses on one ledger — each panel shows only what that party's node actually receives.</div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="tag">You whisper quotes. The market hears nothing.</div>
+    <a class="topbar-cta" href="index.html">← Landing</a>
+  </header>
+
+  <main class="desk">
+    <!-- Buyer -->
+    <section class="panel" data-role="buyer">
+      <div class="phead"><span class="who">Buyer</span><span class="pid" id="pid-buyer">—</span></div>
+      <div class="pbody">
+        <div class="block">
+          <h3>Open an RFQ</h3>
+          <div class="form">
+            <label>Instrument <input id="rfq-instrument" value="TBOND30" /></label>
+            <label>Quantity <input id="rfq-qty" type="number" value="1000" /></label>
+            <label>Pay in <input id="rfq-pay" value="USDC" /></label>
+            <button id="btn-create-rfq">Send to dealer panel</button>
+          </div>
+        </div>
+        <div class="block">
+          <h3>Quotes received <span class="hint">(sealed to you)</span></h3>
+          <div id="buyer-quotes" class="list"><div class="empty">No quotes yet.</div></div>
+          <button id="btn-award" class="award" disabled>Award — pay 2nd price (Vickrey)</button>
+        </div>
+        <div class="block">
+          <h3>Your holdings</h3>
+          <div id="buyer-holdings" class="list mono"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dealer A -->
+    <section class="panel" data-role="dealerA">
+      <div class="phead"><span class="who">Dealer A</span><span class="pid" id="pid-dealerA">—</span></div>
+      <div class="pbody" id="body-dealerA"></div>
+    </section>
+
+    <!-- Dealer B -->
+    <section class="panel" data-role="dealerB">
+      <div class="phead"><span class="who">Dealer B</span><span class="pid" id="pid-dealerB">—</span></div>
+      <div class="pbody" id="body-dealerB"></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="privacy-note" id="privacy-note">
+      Each column is that party's own view of the same Canton ledger. Dealer B never
+      receives Dealer A's quote — it is not hidden in the UI, it is never sent to their node.
+    </div>
+    <div id="regulator-view" class="reg"></div>
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

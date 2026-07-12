@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MEDIA = join(HERE, '..', 'media');
-const URL = process.env.BISIK_URL ?? 'http://localhost:8080';
+const URL = process.env.BISIK_URL ?? 'http://localhost:8080/app.html';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const step = async (page, name, ms = 2600) => { await wait(ms); await page.screenshot({ path: join(MEDIA, name) }); console.log('  📸', name); };

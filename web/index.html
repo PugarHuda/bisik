@@ -3,63 +3,174 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Bisik — confidential RFQ desk</title>
-<link rel="stylesheet" href="style.css" />
+<title>Bisik — confidential multi-dealer RFQ desk on Canton</title>
+<style>
+  :root{
+    --bg:#07090c; --bg2:#0b0f14; --ink:#e9eef5; --muted:#8b97a6; --line:#1d242d;
+    --accent:#6ee7b7; --accent2:#7dd3fc; --card:#0f141a;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);
+    background:rgba(7,9,12,.72);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:28px;height:64px}
+  .logo{font-size:20px;font-weight:800;letter-spacing:-.02em}
+  .logo .d{color:var(--accent)}
+  nav .links{margin-left:auto;display:flex;gap:26px;align-items:center}
+  nav .links a{color:var(--muted);font-size:14px}
+  nav .links a:hover{color:var(--ink)}
+  .btn{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#04231a;
+    padding:9px 16px;border-radius:8px;font-weight:700;font-size:14px;border:0;cursor:pointer;white-space:nowrap}
+  .btn:hover{filter:brightness(1.08)}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--muted)}
+
+  /* hero */
+  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+  .hero::before{content:"";position:absolute;inset:0;z-index:0;
+    background:radial-gradient(900px 480px at 78% -10%,rgba(110,231,183,.16),transparent 60%),
+               radial-gradient(700px 420px at 12% 8%,rgba(125,211,252,.10),transparent 55%)}
+  .hero .wrap{position:relative;z-index:1;padding:96px 24px 88px}
+  .eyebrow{font-size:12px;letter-spacing:.18em;color:var(--accent);font-weight:600;text-transform:uppercase}
+  h1{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    font-size:clamp(38px,7vw,84px);line-height:.98;letter-spacing:-.03em;margin:20px 0 0;font-weight:800}
+  h1 .g{color:var(--accent)}
+  .lede{max-width:620px;color:#c2ccd8;font-size:18px;margin:26px 0 0}
+  .cta{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap}
+  .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:40px}
+  .chip{font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;
+    padding:6px 13px;background:rgba(255,255,255,.02)}
+  .chip b{color:var(--accent);font-weight:700}
+
+  /* sections */
+  section.blk{padding:76px 0;border-bottom:1px solid var(--line)}
+  .kicker{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  h2{font-size:clamp(26px,4vw,38px);letter-spacing:-.02em;margin:12px 0 0}
+  .sub{color:var(--muted);margin-top:10px;max-width:640px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:36px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.grid{grid-template-columns:1fr}}
+  .feat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .feat .n{font-family:ui-monospace,monospace;font-size:12px;color:var(--accent)}
+  .feat h3{margin:12px 0 6px;font-size:16px}
+  .feat p{margin:0;color:var(--muted);font-size:13.5px}
+
+  /* flow */
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:36px;
+    border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  @media(max-width:860px){.flow{grid-template-columns:1fr}}
+  .step{padding:22px;border-right:1px solid var(--line)}
+  .flow .step:last-child{border-right:0}
+  @media(max-width:860px){.step{border-right:0;border-bottom:1px solid var(--line)}}
+  .step .s{font-family:ui-monospace,monospace;color:var(--accent2);font-size:12px}
+  .step h4{margin:10px 0 6px;font-size:15px}
+  .step p{margin:0;color:var(--muted);font-size:13px}
+
+  /* lineage table */
+  .tbl{margin-top:32px;border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:14px}
+  .tr{display:grid;grid-template-columns:1.1fr 1.4fr 2.2fr;gap:0}
+  .tr>div{padding:13px 16px;border-bottom:1px solid var(--line)}
+  .tr:last-child>div{border-bottom:0}
+  .th{background:rgba(255,255,255,.03);color:var(--muted);font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+  .tr.now>div{background:rgba(110,231,183,.06)}
+  .tr.now .p{color:var(--accent);font-weight:700}
+  .tbl .mut{color:var(--muted)}
+
+  footer{padding:44px 0 60px}
+  footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+  footer a{color:var(--muted)} footer a:hover{color:var(--ink)}
+</style>
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">bisik<span class="dot">.</span></div>
-  <div class="tag">You whisper quotes. The market hears nothing.</div>
-  <div class="ledger" id="ledger-status">connecting…</div>
-</header>
-
-<main class="desk">
-  <!-- Buyer -->
-  <section class="panel" data-role="buyer">
-    <div class="phead"><span class="who">Buyer</span><span class="pid" id="pid-buyer">—</span></div>
-    <div class="pbody">
-      <div class="block">
-        <h3>Open an RFQ</h3>
-        <div class="form">
-          <label>Instrument <input id="rfq-instrument" value="TBOND30" /></label>
-          <label>Quantity <input id="rfq-qty" type="number" value="1000" /></label>
-          <label>Pay in <input id="rfq-pay" value="USDC" /></label>
-          <button id="btn-create-rfq">Send to dealer panel</button>
-        </div>
-      </div>
-      <div class="block">
-        <h3>Quotes received <span class="hint">(sealed to you)</span></h3>
-        <div id="buyer-quotes" class="list"><div class="empty">No quotes yet.</div></div>
-        <button id="btn-award" class="award" disabled>Award — pay 2nd price (Vickrey)</button>
-      </div>
-      <div class="block">
-        <h3>Your holdings</h3>
-        <div id="buyer-holdings" class="list mono"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Dealer A -->
-  <section class="panel" data-role="dealerA">
-    <div class="phead"><span class="who">Dealer A</span><span class="pid" id="pid-dealerA">—</span></div>
-    <div class="pbody" id="body-dealerA"></div>
-  </section>
-
-  <!-- Dealer B -->
-  <section class="panel" data-role="dealerB">
-    <div class="phead"><span class="who">Dealer B</span><span class="pid" id="pid-dealerB">—</span></div>
-    <div class="pbody" id="body-dealerB"></div>
-  </section>
-</main>
-
-<footer class="foot">
-  <div class="privacy-note" id="privacy-note">
-    Each column is that party's own view of the same Canton ledger. Dealer B never
-    receives Dealer A's quote — it is not hidden in the UI, it is never sent to their node.
+<nav><div class="wrap">
+  <div class="logo">bisik<span class="d">.</span></div>
+  <div class="links">
+    <a href="#how">How it works</a>
+    <a href="#model">The model</a>
+    <a href="#lineage">Why Canton</a>
+    <a href="https://github.com/PugarHuda/bisik" target="_blank" rel="noopener">GitHub</a>
+    <a class="btn" href="app.html">Open the desk&nbsp;↗</a>
   </div>
-  <div id="regulator-view" class="reg"></div>
-</footer>
+</div></nav>
 
-<script src="app.js"></script>
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">Confidential multi-dealer RFQ · Canton Network</div>
+  <h1>Whisper your quotes.<br><span class="g">The market hears nothing.</span></h1>
+  <p class="lede">A sealed-bid OTC block-trading desk built native on Canton. A buyer requests
+    quotes from a chosen dealer panel; each quote is sealed — rival dealers never receive it, the
+    market never sees the RFQ, losing bids are archived unrevealed. Settlement is atomic
+    Vickrey delivery-versus-payment. Privacy is the ledger model, not cryptography bolted on.</p>
+  <div class="cta">
+    <a class="btn" href="app.html">Open the desk&nbsp;↗</a>
+    <a class="btn ghost" href="#how">How it works</a>
+  </div>
+  <div class="chips">
+    <div class="chip">● <b>Live on Canton Devnet</b></div>
+    <div class="chip"><b>15/15</b> on-ledger tests</div>
+    <div class="chip">Vickrey second-price DvP</div>
+    <div class="chip">MCP-native · read-only agent tools</div>
+  </div>
+</div></header>
+
+<section class="blk" id="how"><div class="wrap">
+  <div class="kicker">How it works</div>
+  <h2>Four contracts. The whole privacy layer.</h2>
+  <p class="sub">On Canton, "dealer B cannot see dealer A's quote" is not a cryptographic
+    achievement — it is a <span class="mono">signatory</span>/<span class="mono">observer</span> declaration. No ZK, no FHE, no TEE.</p>
+  <div class="flow">
+    <div class="step"><div class="s">01 · RFQ</div><h4>Request, unseen</h4>
+      <p>Buyer invites a dealer panel. The market never sees the RFQ; it carries no price.</p></div>
+    <div class="step"><div class="s">02 · Sealed quote</div><h4>Whispered, escrowed</h4>
+      <p>Each dealer answers with a sealed quote and locks the asset in escrow. Rivals never receive it — physically, not by policy.</p></div>
+    <div class="step"><div class="s">03 · Vickrey award</div><h4>Fair, atomic</h4>
+      <p>Cheapest ask wins, paid the second-cheapest price. Cash→dealer and asset→buyer settle in one atomic DvP transaction.</p></div>
+    <div class="step"><div class="s">04 · Regulator</div><h4>Auditable, post-trade</h4>
+      <p>A regulator observes executed trades — and only executed trades. The pre-trade flow stays dark.</p></div>
+  </div>
+</div></section>
+
+<section class="blk" id="model"><div class="wrap">
+  <div class="kicker">What stays private</div>
+  <h2>Sealed bids, proven fair — without a trusted operator.</h2>
+  <div class="grid">
+    <div class="feat"><div class="n">signatory dealer, buyer</div><h3>Quotes are sealed</h3>
+      <p>A Quote has no other observers, so competing dealers and the regulator never receive it. Verified live: a dealer's own node only ever holds its own quote.</p></div>
+    <div class="feat"><div class="n">reverse Vickrey</div><h3>Truthful pricing</h3>
+      <p>The winner is paid the runner-up's price, so dealers quote their true reserve without shading. On a transparent chain this needs ZK or FHE — here it is ~40 lines of Daml.</p></div>
+    <div class="feat"><div class="n">atomic DvP</div><h3>Both legs or neither</h3>
+      <p>Cash to the dealer and the escrowed asset to the buyer move in one transaction; any failure rolls the whole exercise back. No half-settled trade.</p></div>
+    <div class="feat"><div class="n">issuer-bound escrow</div><h3>No double-sell</h3>
+      <p>The asset is locked in escrow the moment a dealer quotes and can't be pulled back mid-auction. Issuer binding rejects counterfeit legs.</p></div>
+  </div>
+</div></section>
+
+<section class="blk" id="lineage"><div class="wrap">
+  <div class="kicker">Why Canton</div>
+  <h2>We built this product five times. This is the first native one.</h2>
+  <p class="sub">The same sealed-bid OTC thesis, fought against four chains' transparency with heavy machinery — then done on Canton, where sub-transaction privacy is the ledger model.</p>
+  <div class="tbl">
+    <div class="tr th"><div>Project</div><div>Chain</div><div>Privacy machinery required</div></div>
+    <div class="tr"><div>Diam</div><div class="mut">Arbitrum (iExec Nox)</div><div class="mut">TEE confidential compute, encrypted handles</div></div>
+    <div class="tr"><div>Segel</div><div class="mut">Stellar (Soroban)</div><div class="mut">Two Circom/Groth16 ZK circuits, hand-rolled Poseidon</div></div>
+    <div class="tr"><div>Sealed Pair</div><div class="mut">Sui</div><div class="mut">Walrus blob commitments + Seal threshold encryption</div></div>
+    <div class="tr"><div>Samar</div><div class="mut">Ethereum (Zama fhEVM)</div><div class="mut">FHE, branchless FHE.select settlement</div></div>
+    <div class="tr now"><div class="p">Bisik</div><div class="p">Canton</div><div class="p">None. Sub-transaction privacy is the ledger model.</div></div>
+  </div>
+  <div class="cta"><a class="btn" href="app.html">Open the desk&nbsp;↗</a>
+    <a class="btn ghost" href="https://github.com/PugarHuda/bisik" target="_blank" rel="noopener">Read the code</a></div>
+</div></section>
+
+<footer><div class="wrap">
+  <div>bisik<span style="color:var(--accent)">.</span> — confidential RFQ desk · Canton Network · Build on Canton Hackathon 2026</div>
+  <div><a href="app.html">Open the desk</a> · <a href="https://github.com/PugarHuda/bisik" target="_blank" rel="noopener">GitHub</a></div>
+</div></footer>
 </body>
 </html>
