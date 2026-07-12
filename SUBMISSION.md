@@ -36,7 +36,7 @@ no clean audit trail. $30B+/month still trades this way.
   privacy itself* (`party_view(dealerA)` returns only its own quote).
 - **Autonomous market-maker agent** — a software agent that watches for RFQs it's
   invited to and auto-quotes, blind to its rivals.
-- **14 behavioural tests, CI, deployed live on Canton Devnet.**
+- **11 behavioural tests (+ seed scripts, 15 total), CI, deployed live on Canton Devnet.**
 
 ## Why Canton (the differentiator)
 We built this exact product four times before — iExec (TEE), Stellar (ZK circuits),
@@ -46,7 +46,7 @@ ledger's data model. This is the case *for* Canton, made by someone who tried th
 alternatives.
 
 ## How it maps to the judging criteria
-- **Technical execution** — clean two-package Daml; 14 tests (privacy, Vickrey 1/2/3,
+- **Technical execution** — clean two-package Daml; 11 behavioural tests (privacy, Vickrey 1/2/3,
   escrow guard, issuer binding, cross-RFQ, deadline); CI; deployed + verified on Devnet.
 - **Originality** — an agent that verifies the ledger's privacy for itself; a desk
   built five times that finally needed no cryptography stack.

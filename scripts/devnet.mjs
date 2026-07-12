@@ -171,6 +171,10 @@ const createHolding = (issuer, owner, instrument, amount) =>
   ({ CreateCommand: { templateId: `${PKG}:Bisik:Holding`, createArguments: { issuer, owner, instrument, amount: String(amount) } } });
 
 const cidOf = (tx) => tx.transaction?.events?.find((e) => e.CreatedEvent)?.CreatedEvent?.contractId;
+// A SubmitQuote tx creates both an EscrowedHolding and a Quote — pick by template.
+const cidOfTpl = (tx, suffix) => (tx.transaction?.events ?? [])
+  .map((e) => e.CreatedEvent).filter(Boolean)
+  .find((c) => c.templateId?.endsWith(suffix))?.contractId;
 
 async function parties() {
   const out = {};
@@ -238,6 +242,36 @@ async function verify() {
   }
 }
 
+// Add ONE prior settled trade (a separate instrument, GILT10) to the live desk, so
+// the regulator's post-trade audit column isn't empty — it proves the "regulator
+// observes executed trades, and only executed trades" half of the story on Devnet.
+// Idempotent: skips if the regulator already sees a TradeReport.
+async function settleDemo() {
+  const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
+  const regEv = await acsAs(p.regulator);
+  if (regEv.some((e) => e.templateId.endsWith(':Bisik:TradeReport'))) {
+    console.log('regulator already has a settled trade — nothing to do.');
+    return;
+  }
+  const inst = 'GILT10';
+  // Dedicated 195000 cash so the buyer's 5M TBOND30 float stays intact (exact clear = no change).
+  const cash = cidOf(await submit(p.cashIssuer, createHolding(p.cashIssuer, p.buyer, 'USDC', '195000.0')));
+  const gA = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerA, inst, '100.0')));
+  const gB = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerB, inst, '100.0')));
+  const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
+    buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
+    instrument: inst, quantity: '100.0', payInstrument: 'USDC',
+    assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer, deadline: '2030-01-01T00:00:00Z' } } }));
+  const quote = (dealer, price, assetCid) => ({ ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`,
+    contractId: rfq, choice: 'SubmitQuote', choiceArgument: { dealer, price, assetCid } } });
+  const qA = cidOfTpl(await submit(p.dealerA, quote(p.dealerA, '190000.0', gA)), ':Bisik:Quote');
+  const qB = cidOfTpl(await submit(p.dealerB, quote(p.dealerB, '195000.0', gB)), ':Bisik:Quote');
+  // Cheapest (A) wins, paid the second price (195000) — atomic DvP; TradeReport → regulator.
+  await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq,
+    choice: 'Award', choiceArgument: { quoteCids: [qA, qB], cashCid: cash } } });
+  console.log('settled GILT10 100 @ 195000 (Vickrey) — regulator now sees one executed trade.');
+}
+
 // Archive duplicate buyer USDC holdings left by 503-retries; keep exactly one.
 async function cleanup() {
   const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
@@ -262,6 +296,7 @@ const cmd = process.argv[2];
   else if (cmd === 'allocate-one') console.log(await allocateOne(process.argv[3] ?? 'bisik-probe-1'));
   else if (cmd === 'allocate') await allocate();
   else if (cmd === 'seed') await seed();
+  else if (cmd === 'settle-demo') await settleDemo();
   else if (cmd === 'verify') await verify();
-  else console.log('usage: probe | upload <dar> | allocate | seed | verify');
+  else console.log('usage: probe | upload <dar> | allocate | seed | settle-demo | verify');
 })().catch((e) => { console.error('ERR', e.message); process.exit(1); });
