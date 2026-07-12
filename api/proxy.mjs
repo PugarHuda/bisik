@@ -36,10 +36,12 @@ const PARTIES = (() => {
 
 // The exact read endpoints the desk needs. Anything else — above all the write
 // path /v2/commands/* — is denied here, before any token is ever attached.
+// Only the two reads the hosted desk actually makes. /v2/parties is deliberately
+// NOT here: the desk reads its party ids from /config, and exposing the shared
+// validator's full party list (every other team's ids) serves no purpose.
 const ALLOW = [
   { m: 'GET', p: 'v2/state/ledger-end' },
   { m: 'POST', p: 'v2/state/active-contracts' }, // a POST, but a read (query)
-  { m: 'GET', p: 'v2/parties' },
 ];
 
 let tok = null, tokExp = 0;

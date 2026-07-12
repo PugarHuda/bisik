@@ -26,7 +26,7 @@ ok('blocks unknown path', (await call('GET', ['v2', 'anything', 'else']))._s ===
 const c = await call('GET', ['config']);
 ok('config returns readOnly + parties', c._s === 200 && c._j?.readOnly === true && !!c._j?.parties?.buyer);
 ok('allows ledger-end read', (await call('GET', ['v2', 'state', 'ledger-end']))._s !== 403);
-ok('allows parties GET (read)', (await call('GET', ['v2', 'parties']))._s !== 403);
+ok('blocks parties GET (validator enumeration)', (await call('GET', ['v2', 'parties']))._s === 403);
 // active-contracts is scoped to THIS desk's parties on the shared validator.
 const buyer = c._j.parties.buyer;
 ok('allows active-contracts for a desk party', (await call('POST', ['v2', 'state', 'active-contracts'], acsBody(buyer)))._s !== 403);

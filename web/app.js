@@ -103,12 +103,12 @@ const toast = (msg, err = false) => {
 // Hosted public demo: the server proxies reads only. Reflect that in the UI —
 // disable the write buttons and show a banner. (Security is enforced server-side;
 // this is just so the buttons don't look broken.)
+const RO_MSG = 'Read-only public demo — clone the repo and run `npm run demo` to drive the flow yourself.';
 function enterReadOnly() {
   READONLY = true;
-  for (const id of ['btn-create-rfq', 'btn-award']) {
-    const b = document.getElementById(id);
-    if (b) { b.disabled = true; b.title = 'read-only public demo'; }
-  }
+  // Leave the action buttons ENABLED so a click gives a helpful explanation (a
+  // disabled button is silently dead); the handlers below no-op with a toast, and
+  // the server blocks the write regardless.
   const bar = document.createElement('div');
   bar.textContent = 'Read-only public demo · live Canton Devnet state — actions are disabled. Clone the repo and run `npm run demo` to drive it.';
   bar.style.cssText = 'position:sticky;top:0;z-index:10;padding:6px 12px;font-size:13px;text-align:center;background:#1c2733;color:#8fb4d6;border-bottom:1px solid #2a3947';
@@ -171,7 +171,7 @@ function renderBuyer(mine) {
       && c.arg.instrument === rfq.arg.payInstrument && Number(c.arg.amount) >= clearing);
     if (rfq && cash) awardable = { rfqCid: rfq.cid, tpl: rfq.tpl, quoteCids: sorted.map((c) => c.cid), cashCid: cash.cid };
   }
-  document.getElementById('btn-award').disabled = !awardable || READONLY;
+  document.getElementById('btn-award').disabled = !awardable;
 }
 
 function renderDealer(role, mine) {
@@ -188,7 +188,7 @@ function renderDealer(role, mine) {
   const rfqCards = rfqs.map((r) => {
     const already = quotedRfqs.has(r.cid);
     const bond = bonds.find((b) => b.arg.instrument === r.arg.instrument && Number(b.arg.amount) === Number(r.arg.quantity));
-    const canQuote = !already && bond && !READONLY;
+    const canQuote = !already && bond;
     return `
       <div class="card">
         <div class="row"><span>RFQ · ${esc(r.arg.instrument)}</span><span class="sub">qty ${fmt(r.arg.quantity)}</span></div>
@@ -250,6 +250,7 @@ async function guarded(btn, fn) {
 }
 
 async function createRFQ() {
+  if (READONLY) return toast(RO_MSG);
   if (!PKG) return toast('package not discovered yet', true);
   const instrument = document.getElementById('rfq-instrument').value.trim();
   const payInstrument = document.getElementById('rfq-pay').value.trim();
@@ -271,6 +272,7 @@ async function createRFQ() {
 }
 
 async function submitQuote(role, rfqCid, bondCid, tpl, priceRaw, btn) {
+  if (READONLY) return toast(RO_MSG);
   const price = posDec(priceRaw);
   if (!price) return toast('ask must be a positive number', true);
   await guarded(btn, async () => {
@@ -283,6 +285,7 @@ async function submitQuote(role, rfqCid, bondCid, tpl, priceRaw, btn) {
 }
 
 async function award() {
+  if (READONLY) return toast(RO_MSG);
   if (!awardable) return;
   await guarded(document.getElementById('btn-award'), async () => {
     try {
