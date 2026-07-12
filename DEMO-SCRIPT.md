@@ -34,7 +34,8 @@ this isn't UI hiding, it's the ledger."
 ### 1:30–2:10 — Fair settlement (screen: Buyer + regulator strip)
 - Buyer sees both quotes. "Buyer sees the two sealed asks. Cheapest wins —
   but is paid the *second* price. That's a Vickrey auction: it lets dealers quote
-  their true price without shading, and it's enforced by the contract, not me."
+  their true price without shading, and the Award choice computes it on-ledger —
+  the winner is paid the runner-up's price."
 - Click "Award." "One transaction: cash to the winning dealer, the bond to the
   buyer — atomic delivery-versus-payment. If either leg fails, neither happens."
 - Balances update: winner paid 4.25M (the second price), loser's bond returned,

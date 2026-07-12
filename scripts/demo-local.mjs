@@ -108,8 +108,10 @@ process.on('exit', cleanup);
     '--ledger-host', 'localhost', '--ledger-port', '6865', '--no-legacy-assistant-warning']);
 
   console.log('· starting desk on http://localhost:8080');
+  // shell:false — process.execPath can contain spaces (C:\Program Files\nodejs),
+  // which a Windows shell would split; spawn the node binary directly.
   spawnKid('web', process.execPath, [join('web', 'server.mjs')],
-    { env: { ...env, PORT: '8080', LEDGER_JSON_URL: 'http://localhost:7575', LEDGER_USER_ID: 'participant_admin' } });
+    { shell: false, env: { ...env, PORT: '8080', LEDGER_JSON_URL: 'http://localhost:7575', LEDGER_USER_ID: 'participant_admin' } });
 
   console.log('\n✓ open http://localhost:8080   (Ctrl+C to stop)\n');
 })().catch((e) => { console.error('demo failed:', e.message); cleanup(); process.exit(1); });

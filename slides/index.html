@@ -138,9 +138,9 @@ TradeReport    regulator sees the settled trade — post-trade only</div>
     <h2>Built, tested, and live.</h2>
     <ul>
       <li>Clean two-package Daml — the deployable model DAR carries no test/script bloat.</li>
-      <li>Escrow-backed atomic DvP; reverse-Vickrey pricing enforced on-ledger.</li>
-      <li>End-to-end <code>daml test</code> with explicit <span class="accent">privacy assertions</span> (Dealer B cannot query Dealer A’s quote).</li>
-      <li>Web desk over the JSON Ledger API — verified rendering end-to-end.</li>
+      <li>Escrow-backed atomic DvP; the reverse-Vickrey clearing is computed on-ledger in the <code>Award</code> choice.</li>
+      <li>13 behavioural tests, incl. explicit <span class="accent">privacy assertions</span> (Dealer B cannot query Dealer A’s quote), issuer-binding, and the escrow-can’t-be-yanked guard.</li>
+      <li>Web desk over the JSON Ledger API — award flow verified end-to-end.</li>
       <li><span class="accent">Deployed live on Canton Devnet</span> (5N validator, Canton 3.5.7) — privacy proven on-ledger.</li>
     </ul>
   </section>

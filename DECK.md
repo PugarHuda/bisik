@@ -33,8 +33,10 @@ RFQ (buyer → invited dealers, no price)
       → losing quotes archived, never revealed
         → TradeReport visible to the regulator (post-trade only)
 ```
-Privacy = Canton sub-transaction privacy. Fairness = the Vickrey rule, enforced
-in the contract. Settlement = atomic DvP — both legs or neither.
+Privacy = Canton sub-transaction privacy. Fairness = the Vickrey rule computed
+in the `Award` choice on-ledger (not a trusted operator). Settlement = atomic
+DvP — both legs or neither. The contract also guarantees no dealer is paid below
+their ask and that escrowed collateral can't be pulled back mid-auction.
 
 **6 · Why Canton — the differentiator (the table)**
 I built this exact product four times before, each fighting the chain's
@@ -60,7 +62,7 @@ by the protocol and a regulator-observable audit trail. Maps to the track's
 
 **8 · Technical execution**
 - Clean two-package Daml (model DAR carries no test/script bloat).
-- Escrow-backed atomic DvP; reverse-Vickrey pricing enforced on-ledger.
+- Escrow-backed atomic DvP; reverse-Vickrey clearing computed on-ledger in `Award`.
 - End-to-end `daml test` incl. explicit privacy assertions (Dealer B cannot
   query Dealer A's quote).
 - Web desk over the JSON Ledger API; verified live against a Canton participant.
