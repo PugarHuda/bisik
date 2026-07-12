@@ -4,7 +4,7 @@
 module Bisik where
 
 import DA.Foldable (forA_)
-import DA.List (head, sortOn, tail)
+import DA.List (dedup, head, sortOn, tail)
 
 -- A fungible position in one instrument. Used for both legs (asset and cash).
 template Holding
@@ -94,8 +94,10 @@ template RFQ
          assertMsg "wrong instrument" (asset.instrument == instrument)
          assertMsg "wrong quantity" (asset.amount == quantity)
          escrowCid <- exercise assetCid Lock with buyer
+         -- Stamp this RFQ's own id so a quote can only ever settle its RFQ,
+         -- never cross-settle into another RFQ that shares instrument/size.
          create Quote with buyer; regulator; dealer; instrument; quantity
-                           payInstrument; price; escrowCid
+                           payInstrument; price; escrowCid; rfqId = Some self
 
     -- Buyer settles against the submitted quotes: cheapest ask wins, but is
     -- paid the SECOND-cheapest price (reverse Vickrey), atomically DvP.
@@ -106,11 +108,12 @@ template RFQ
         cashCid : ContractId Holding
       controller buyer
       do assertMsg "no quotes submitted" (not (null quoteCids))
+         let uniqueCids = dedup quoteCids
+         assertMsg "duplicate quote ids" (length uniqueCids == length quoteCids)
          quotes <- forA quoteCids \cid -> do
            q <- fetch cid
-           assertMsg "quote does not match this RFQ"
-             (q.buyer == buyer && q.instrument == instrument
-              && q.quantity == quantity && q.payInstrument == payInstrument)
+           -- Bind by the RFQ's own id: a quote settles this RFQ or nothing.
+           assertMsg "quote belongs to a different RFQ" (q.rfqId == Some self)
            pure (cid, q)
          let sorted = sortOn (\(_, q) -> q.price) quotes
          let (winCid, winQ) = head sorted
@@ -136,6 +139,7 @@ template Quote
     payInstrument : Text
     price : Decimal
     escrowCid : ContractId EscrowedHolding
+    rfqId : Optional (ContractId RFQ) -- Optional so the template stays upgrade-compatible
   where
     signatory dealer, buyer
 

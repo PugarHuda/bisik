@@ -1,7 +1,7 @@
 // Bisik DevNet deploy/seed against the shared 5N hackathon validator.
 // Reads scripts/.env.devnet (gitignored). Node >= 20.
 //   node scripts/devnet.mjs probe
-//   node scripts/devnet.mjs upload .daml/dist/bisik-0.1.0.dar
+//   node scripts/devnet.mjs upload .daml/dist/bisik-0.2.0.dar
 //   node scripts/devnet.mjs allocate
 //   node scripts/devnet.mjs seed
 import { readFile, writeFile } from 'node:fs/promises';
@@ -88,9 +88,11 @@ async function upload(darPath) {
 }
 
 const USER = '6';
+// v2 party set — isolates this deployment's (new package) contracts from any
+// earlier ones on the shared validator, so party queries return only our data.
 const HINTS = {
-  buyer: 'bisik-buyer-1', dealerA: 'bisik-dealerA-1', dealerB: 'bisik-dealerB-1',
-  regulator: 'bisik-regulator-1', cashIssuer: 'bisik-cashissuer-1', bondIssuer: 'bisik-bondissuer-1',
+  buyer: 'bisik-v2-buyer', dealerA: 'bisik-v2-dealerA', dealerB: 'bisik-v2-dealerB',
+  regulator: 'bisik-v2-regulator', cashIssuer: 'bisik-v2-cashissuer', bondIssuer: 'bisik-v2-bondissuer',
 };
 
 async function namespace() {
@@ -137,7 +139,9 @@ async function allocate() {
   console.log('wrote scripts/devnet.parties.json');
 }
 
-const PKG = '906f2697a2d0db695c3cf6ad8b28d8960507cd18ca08689f4e995013fb3add3f';
+// Main package id of .daml/dist/bisik-0.2.0.dar. Regenerate after a model change
+// with: daml damlc inspect-dar --json .daml/dist/bisik-0.2.0.dar  (or set BISIK_PKG).
+const PKG = process.env.BISIK_PKG ?? 'e6ff0be7d7a92db14894c46ca30c46e82045966ec82eb026193b1ade418ba905';
 let CID = 0;
 async function submit(actAs, command) {
   const commandId = `bisik-${Date.now()}-${CID++}`; // stable across retries → dedup on the ledger
@@ -209,7 +213,7 @@ async function verify() {
     const byTpl = {};
     for (const e of ev) { const t = e.templateId.split(':').slice(-1)[0]; byTpl[t] = (byTpl[t] ?? 0) + 1; }
     const quotes = ev.filter((e) => e.templateId.endsWith(':Bisik:Quote'))
-      .map((e) => e.createArgument.dealer.split('-').slice(0, 2).join('-'));
+      .map((e) => e.createArgument.dealer.split('::')[0]);
     console.log(role.padEnd(11), JSON.stringify(byTpl), quotes.length ? 'quotes from: ' + quotes.join(',') : '');
   }
 }
@@ -234,7 +238,7 @@ const cmd = process.argv[2];
   ENV = await loadEnv();
   if (cmd === 'probe') await probe();
   else if (cmd === 'cleanup') await cleanup();
-  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.1.0.dar');
+  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.2.0.dar');
   else if (cmd === 'allocate-one') console.log(await allocateOne(process.argv[3] ?? 'bisik-probe-1'));
   else if (cmd === 'allocate') await allocate();
   else if (cmd === 'seed') await seed();

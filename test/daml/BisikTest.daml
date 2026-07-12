@@ -1,88 +1,153 @@
--- End-to-end test: mint -> RFQ -> sealed quotes -> Vickrey award (atomic DvP),
--- plus the privacy assertions that ARE the product.
+-- Full behavioural suite for the Bisik desk. Covers the happy path, the
+-- privacy guarantees that ARE the product, Vickrey pricing across 1/2/3 quotes,
+-- escrow return on withdraw, and the failure modes (insufficient cash,
+-- cross-RFQ settlement, duplicate quotes).
 module BisikTest where
 
 import DA.Assert ((===))
-import DA.List (sortOn)
+import DA.List (sort)
 import DA.Optional (isNone)
 import Daml.Script
 import Bisik
 
-testBisik : Script ()
-testBisik = do
+data Env = Env with
+  buyer : Party
+  regulator : Party
+  cashIssuer : Party
+  bondIssuer : Party
+
+setupEnv : Script Env
+setupEnv = do
   buyer <- allocateParty "Buyer"
-  dealerA <- allocateParty "DealerA"
-  dealerB <- allocateParty "DealerB"
-  outsider <- allocateParty "Outsider"
   regulator <- allocateParty "Regulator"
   cashIssuer <- allocateParty "CashIssuer"
   bondIssuer <- allocateParty "BondIssuer"
+  pure Env with buyer; regulator; cashIssuer; bondIssuer
 
-  -- Mint both legs
-  cash <- submit cashIssuer do
-    createCmd Holding with
-      issuer = cashIssuer; owner = buyer; instrument = "USDC"; amount = 5000000.0
-  bondA <- submit bondIssuer do
-    createCmd Holding with
-      issuer = bondIssuer; owner = dealerA; instrument = "TBOND30"; amount = 1000.0
-  bondB <- submit bondIssuer do
-    createCmd Holding with
-      issuer = bondIssuer; owner = dealerB; instrument = "TBOND30"; amount = 1000.0
+mintCash : Env -> Decimal -> Script (ContractId Holding)
+mintCash e amt = submit e.cashIssuer do
+  createCmd Holding with issuer = e.cashIssuer; owner = e.buyer; instrument = "USDC"; amount = amt
 
-  -- Buyer opens an RFQ to a chosen two-dealer panel
-  rfq <- submit buyer do
-    createCmd RFQ with
-      buyer; regulator
-      invitedDealers = [dealerA, dealerB]
-      instrument = "TBOND30"; quantity = 1000.0; payInstrument = "USDC"
+mintBond : Env -> Party -> Script (ContractId Holding)
+mintBond e dealer = submit e.bondIssuer do
+  createCmd Holding with issuer = e.bondIssuer; owner = dealer; instrument = "TBOND30"; amount = 1000.0
 
-  -- An uninvited party cannot quote (cannot even see the RFQ)
+openRfq : Env -> [Party] -> Script (ContractId RFQ)
+openRfq e dealers = submit e.buyer do
+  createCmd RFQ with
+    buyer = e.buyer; regulator = e.regulator; invitedDealers = dealers
+    instrument = "TBOND30"; quantity = 1000.0; payInstrument = "USDC"
+
+ownedBy : Party -> [(a, Holding)] -> [(Text, Decimal)]
+ownedBy p hs = sort [(h.instrument, h.amount) | (_, h) <- hs, h.owner == p]
+
+-- Happy path + the two privacy guarantees + Vickrey second price on two quotes.
+testHappyPathAndPrivacy : Script ()
+testHappyPathAndPrivacy = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  dealerB <- allocateParty "DealerB"
+  outsider <- allocateParty "Outsider"
+  cash <- mintCash e 5000000.0
+  bondA <- mintBond e dealerA
+  bondB <- mintBond e dealerB
+  rfq <- openRfq e [dealerA, dealerB]
+
   submitMustFail outsider do
-    exerciseCmd rfq SubmitQuote with
-      dealer = outsider; price = 1.0; assetCid = bondA
+    exerciseCmd rfq SubmitQuote with dealer = outsider; price = 1.0; assetCid = bondA
 
-  -- Sealed quotes: A asks 4.21M, B asks 4.25M
-  quoteA <- submit dealerA do
-    exerciseCmd rfq SubmitQuote with
-      dealer = dealerA; price = 4210000.0; assetCid = bondA
-  quoteB <- submit dealerB do
-    exerciseCmd rfq SubmitQuote with
-      dealer = dealerB; price = 4250000.0; assetCid = bondB
+  quoteA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  quoteB <- submit dealerB do exerciseCmd rfq SubmitQuote with dealer = dealerB; price = 4250000.0; assetCid = bondB
 
-  -- THE PRODUCT: competing dealers never receive each other's quotes
-  qAseenByB <- queryContractId dealerB quoteA
-  assertMsg "dealer B must not see dealer A's quote" (isNone qAseenByB)
-  qBseenByA <- queryContractId dealerA quoteB
-  assertMsg "dealer A must not see dealer B's quote" (isNone qBseenByA)
+  -- Rivals never receive each other's quote.
+  (isNone <$> queryContractId dealerB quoteA) >>= assertMsg "B must not see A's quote"
+  (isNone <$> queryContractId dealerA quoteB) >>= assertMsg "A must not see B's quote"
+  -- Regulator sees no pre-trade flow.
+  (=== []) =<< query @Quote e.regulator
+  (=== []) =<< query @RFQ e.regulator
 
-  -- Regulator sees zero pre-trade flow
-  regQuotes <- query @Quote regulator
-  regQuotes === []
-  regRFQs <- query @RFQ regulator
-  regRFQs === []
+  submit e.buyer do exerciseCmd rfq Award with quoteCids = [quoteA, quoteB]; cashCid = cash
 
-  -- Award: cheapest ask (A) wins, paid the second price (B's 4.25M) - atomic DvP
-  submit buyer do
-    exerciseCmd rfq Award with quoteCids = [quoteA, quoteB]; cashCid = cash
+  ownedBy e.buyer <$> query @Holding e.buyer >>= \h -> h === [("TBOND30", 1000.0), ("USDC", 750000.0)]
+  ownedBy dealerA <$> query @Holding dealerA >>= \h -> h === [("USDC", 4250000.0)] -- Vickrey 2nd price
+  ownedBy dealerB <$> query @Holding dealerB >>= \h -> h === [("TBOND30", 1000.0)] -- loser keeps asset
+  reports <- map snd <$> query @TradeReport e.regulator
+  [(r.instrument, r.quantity, r.clearingPrice) | r <- reports] === [("TBOND30", 1000.0, 4250000.0)]
 
-  -- Buyer holds the bond + 750k change
-  buyerHoldings <- map snd <$> query @Holding buyer
-  sortOn fst [(h.instrument, h.amount) | h <- buyerHoldings, h.owner == buyer]
-    === [("TBOND30", 1000.0), ("USDC", 750000.0)]
+-- Three quotes: cheapest wins, pays the SECOND-cheapest (not third, not its own).
+testThreeQuoteVickrey : Script ()
+testThreeQuoteVickrey = do
+  e <- setupEnv
+  [dealerA, dealerB, dealerC] <- mapA allocateParty ["DealerA", "DealerB", "DealerC"]
+  cash <- mintCash e 5000000.0
+  bondA <- mintBond e dealerA
+  bondB <- mintBond e dealerB
+  bondC <- mintBond e dealerC
+  rfq <- openRfq e [dealerA, dealerB, dealerC]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  qB <- submit dealerB do exerciseCmd rfq SubmitQuote with dealer = dealerB; price = 4250000.0; assetCid = bondB
+  qC <- submit dealerC do exerciseCmd rfq SubmitQuote with dealer = dealerC; price = 4300000.0; assetCid = bondC
+  submit e.buyer do exerciseCmd rfq Award with quoteCids = [qA, qB, qC]; cashCid = cash
+  -- A wins, paid B's 4.25M (the second-lowest), NOT C's 4.30M and NOT its own 4.21M.
+  ownedBy dealerA <$> query @Holding dealerA >>= \h -> h === [("USDC", 4250000.0)]
+  ownedBy e.buyer <$> query @Holding e.buyer >>= \h -> h === [("TBOND30", 1000.0), ("USDC", 750000.0)]
 
-  -- Winning dealer got the Vickrey clearing price, and sold the bond
-  dealerAHoldings <- map snd <$> query @Holding dealerA
-  [(h.instrument, h.amount) | h <- dealerAHoldings, h.owner == dealerA]
-    === [("USDC", 4250000.0)]
+-- Single quote: degenerate Vickrey pays the winner its own price.
+testSingleQuote : Script ()
+testSingleQuote = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  cash <- mintCash e 5000000.0
+  bondA <- mintBond e dealerA
+  rfq <- openRfq e [dealerA]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  submit e.buyer do exerciseCmd rfq Award with quoteCids = [qA]; cashCid = cash
+  ownedBy dealerA <$> query @Holding dealerA >>= \h -> h === [("USDC", 4210000.0)]
+  ownedBy e.buyer <$> query @Holding e.buyer >>= \h -> h === [("TBOND30", 1000.0), ("USDC", 790000.0)]
 
-  -- Losing dealer keeps their asset, learns nothing
-  dealerBHoldings <- map snd <$> query @Holding dealerB
-  [(h.instrument, h.amount) | h <- dealerBHoldings, h.owner == dealerB]
-    === [("TBOND30", 1000.0)]
+-- Award fails cleanly if the buyer's cash cannot cover the clearing price.
+testInsufficientCash : Script ()
+testInsufficientCash = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  cash <- mintCash e 4000000.0 -- less than the 4.21M ask
+  bondA <- mintBond e dealerA
+  rfq <- openRfq e [dealerA]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [qA]; cashCid = cash
 
-  -- Regulator sees exactly one post-trade report at the clearing price
-  reports <- map snd <$> query @TradeReport regulator
-  [(r.instrument, r.quantity, r.clearingPrice) | r <- reports]
-    === [("TBOND30", 1000.0, 4250000.0)]
+-- A dealer can withdraw before award; the escrow returns to them intact.
+testWithdraw : Script ()
+testWithdraw = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  bondA <- mintBond e dealerA
+  rfq <- openRfq e [dealerA]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  submit dealerA do exerciseCmd qA WithdrawQuote
+  ownedBy dealerA <$> query @Holding dealerA >>= \h -> h === [("TBOND30", 1000.0)]
+  (isNone <$> queryContractId dealerA qA) >>= assertMsg "withdrawn quote is archived"
 
-  pure ()
+-- A quote made against one RFQ cannot be settled by a different RFQ, even one
+-- with the same instrument/size. Proves the rfqId binding.
+testCrossRfqRejected : Script ()
+testCrossRfqRejected = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  cash <- mintCash e 5000000.0
+  bondA <- mintBond e dealerA
+  rfq1 <- openRfq e [dealerA]
+  rfq2 <- openRfq e [dealerA]
+  qOnRfq2 <- submit dealerA do exerciseCmd rfq2 SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  submitMustFail e.buyer do exerciseCmd rfq1 Award with quoteCids = [qOnRfq2]; cashCid = cash
+
+-- Award rejects a duplicated quote id rather than double-processing it.
+testDuplicateQuoteRejected : Script ()
+testDuplicateQuoteRejected = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  cash <- mintCash e 5000000.0
+  bondA <- mintBond e dealerA
+  rfq <- openRfq e [dealerA]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [qA, qA]; cashCid = cash

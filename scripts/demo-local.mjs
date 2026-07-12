@@ -73,7 +73,7 @@ process.on('exit', cleanup);
 
   console.log('· starting Canton sandbox (this takes ~1–2 min)…');
   spawnKid('sandbox', damlCmd, ['sandbox', '--port', '6865', '--json-api-port', '7575',
-    '--dar', '.daml/dist/bisik-0.1.0.dar', '--json-api-port-file', portFile,
+    '--dar', '.daml/dist/bisik-0.2.0.dar', '--json-api-port-file', portFile,
     '--no-legacy-assistant-warning']);
   await waitFor(() => existsSync(portFile));
   // JSON API port opens before the participant connects to the synchronizer;

@@ -21,9 +21,19 @@ const api = async (path, method = 'GET', body) => {
   return json;
 };
 
+// Retry read-only calls a couple of times — DevNet's gateway returns transient
+// 502/503s. Safe because these are idempotent; command submits are NOT retried.
+const retryRead = async (fn, tries = 3) => {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); } catch (e) { last = e; await new Promise((r) => setTimeout(r, 400 * (i + 1))); }
+  }
+  throw last;
+};
+
 const ledgerEnd = async () => (await api('/v2/state/ledger-end')).offset;
 
-const acs = async (party) => {
+const acs = (party) => retryRead(async () => {
   const off = await ledgerEnd();
   const rows = await api('/v2/state/active-contracts', 'POST', {
     filter: { filtersByParty: { [party]: { cumulative: [] } } },
@@ -34,7 +44,7 @@ const acs = async (party) => {
     .map((r) => r.contractEntry?.JsActiveContract?.createdEvent)
     .filter(Boolean)
     .map((e) => ({ cid: e.contractId, tpl: e.templateId, arg: e.createArgument }));
-};
+});
 
 const is = (c, name) => typeof c.tpl === 'string' && c.tpl.endsWith(T(name));
 
@@ -47,7 +57,10 @@ const submit = async (party, cmd) => {
 
 const fmt = (n) => Number(n).toLocaleString('en-US');
 // Readable dealer name: the party id-hint (before ::), e.g. "bisik-dealerA-1" or "DealerA".
-const dealerLabel = (party) => party.split('::')[0];
+const dealerLabel = (party) => esc(party.split('::')[0]);
+// Escape ledger-sourced strings before putting them in innerHTML (instrument, etc.).
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let toastEl;
 const toast = (msg, err = false) => {
@@ -79,7 +92,7 @@ async function loadParties(configParties) {
 function holdingsHtml(contracts, owner) {
   const hs = contracts.filter((c) => is(c, 'Holding') && c.arg.owner === owner);
   if (!hs.length) return '<div class="empty">none</div>';
-  return hs.map((c) => `<div>${c.arg.instrument} · ${fmt(c.arg.amount)}</div>`).join('');
+  return hs.map((c) => `<div>${esc(c.arg.instrument)} · ${fmt(c.arg.amount)}</div>`).join('');
 }
 
 function renderBuyer(mine) {
@@ -100,16 +113,19 @@ function renderBuyer(mine) {
     const clearing = Number((sorted[1] ?? sorted[0]).arg.price);
     box.innerHTML = sorted.map((c) => `
       <div class="card ${c.cid === winCid ? 'win' : ''}">
-        <div class="row"><span>${dealerLabel(c.arg.dealer)}</span><span class="price">${fmt(c.arg.price)} ${c.arg.payInstrument}</span></div>
-        <div class="sub">${c.arg.instrument} · ${fmt(c.arg.quantity)}${c.cid === winCid ? ' · winner, pays 2nd price ' + fmt(clearing) : ''}</div>
+        <div class="row"><span>${dealerLabel(c.arg.dealer)}</span><span class="price">${fmt(c.arg.price)} ${esc(c.arg.payInstrument)}</span></div>
+        <div class="sub">${esc(c.arg.instrument)} · ${fmt(c.arg.quantity)}${c.cid === winCid ? ' · winner, pays 2nd price ' + fmt(clearing) : ''}</div>
       </div>`).join('');
 
-    // Pick the RFQ these quotes belong to, and a cash holding big enough.
+    // Settle exactly the RFQ these quotes were made against (bound by rfqId),
+    // with a cash holding big enough for the clearing price.
     const q0 = sorted[0].arg;
-    const rfq = rfqs.find((r) => r.arg.instrument === q0.instrument && r.arg.payInstrument === q0.payInstrument);
+    const rfq = rfqs.find((r) => r.cid === q0.rfqId)
+      ?? rfqs.find((r) => r.arg.instrument === q0.instrument && r.arg.payInstrument === q0.payInstrument);
+    const quotesForRfq = rfq ? sorted.filter((c) => c.arg.rfqId === rfq.cid || !c.arg.rfqId) : sorted;
     const cash = mine.find((c) => is(c, 'Holding') && c.arg.owner === P.buyer
       && c.arg.instrument === q0.payInstrument && Number(c.arg.amount) >= clearing);
-    if (rfq && cash) awardable = { rfqCid: rfq.cid, quoteCids: sorted.map((c) => c.cid), cashCid: cash.cid };
+    if (rfq && cash) awardable = { rfqCid: rfq.cid, quoteCids: quotesForRfq.map((c) => c.cid), cashCid: cash.cid };
   }
   document.getElementById('btn-award').disabled = !awardable;
 }
@@ -127,10 +143,10 @@ function renderDealer(role, mine) {
     const canQuote = !already && bond;
     return `
       <div class="card">
-        <div class="row"><span>RFQ · ${r.arg.instrument}</span><span class="sub">qty ${fmt(r.arg.quantity)}</span></div>
+        <div class="row"><span>RFQ · ${esc(r.arg.instrument)}</span><span class="sub">qty ${fmt(r.arg.quantity)}</span></div>
         ${already ? '<div class="sub">you have quoted (sealed)</div>' :
           canQuote ? `<div class="form" style="margin-top:8px">
-              <label>Ask (${r.arg.payInstrument}) <input type="number" id="ask-${role}-${r.cid}" value="4230000" /></label>
+              <label>Ask (${esc(r.arg.payInstrument)}) <input type="number" id="ask-${role}-${r.cid}" value="4230000" /></label>
               <button data-quote="${role}" data-rfq="${r.cid}" data-bond="${bond.cid}">Whisper sealed quote</button>
             </div>` : '<div class="sub">no matching asset to quote</div>'}
       </div>`;
@@ -138,7 +154,7 @@ function renderDealer(role, mine) {
 
   const mineCards = myQuotes.map((q) => `
       <div class="card"><div class="row"><span>your quote</span><span class="price">${fmt(q.arg.price)}</span></div>
-      <div class="sub">${q.arg.instrument} · ${fmt(q.arg.quantity)} · sealed to buyer only</div></div>`).join('');
+      <div class="sub">${esc(q.arg.instrument)} · ${fmt(q.arg.quantity)} · sealed to buyer only</div></div>`).join('');
 
   document.getElementById('body-' + role).innerHTML = `
     <div class="block"><h3>Incoming RFQs</h3><div class="list">${rfqCards || '<div class="empty">none</div>'}</div></div>
@@ -154,7 +170,7 @@ async function renderRegulator() {
   const el = document.getElementById('regulator-view');
   el.innerHTML = reports.length
     ? 'Regulator sees ' + reports.length + ' settled trade(s): ' +
-      reports.map((r) => `${r.arg.instrument} ${fmt(r.arg.quantity)} @ ${fmt(r.arg.clearingPrice)}`).join(', ') +
+      reports.map((r) => `${esc(r.arg.instrument)} ${fmt(r.arg.quantity)} @ ${fmt(r.arg.clearingPrice)}`).join(', ') +
       ' — and nothing about the losing quotes or the RFQ.'
     : 'Regulator view: no settled trades yet (and zero visibility into live RFQs or quotes).';
 }
@@ -180,20 +196,24 @@ const setLedger = (cls, msg) => { const el = document.getElementById('ledger-sta
 async function createRFQ() {
   if (!PKG) return toast('package not discovered yet', true);
   const instrument = document.getElementById('rfq-instrument').value.trim();
-  const quantity = document.getElementById('rfq-qty').value.trim();
   const payInstrument = document.getElementById('rfq-pay').value.trim();
+  const quantity = Number(document.getElementById('rfq-qty').value);
+  if (!instrument || !payInstrument) return toast('instrument and pay currency are required', true);
+  if (!(quantity > 0)) return toast('quantity must be a positive number', true);
   try {
     await submit(P.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
       buyer: P.buyer, regulator: P.regulator, invitedDealers: [P.dealerA, P.dealerB],
-      instrument, quantity: String(Number(quantity).toFixed(1)), payInstrument } } });
+      instrument, quantity: quantity.toFixed(1), payInstrument } } });
     toast('RFQ sent to the dealer panel'); refresh();
   } catch (e) { toast(e.message, true); }
 }
 
 async function submitQuote(role, rfqCid, bondCid, price) {
+  const ask = Number(price);
+  if (!(ask > 0)) return toast('ask must be a positive number', true);
   try {
     await submit(P[role], { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfqCid,
-      choice: 'SubmitQuote', choiceArgument: { dealer: P[role], price: String(Number(price).toFixed(1)), assetCid: bondCid } } });
+      choice: 'SubmitQuote', choiceArgument: { dealer: P[role], price: ask.toFixed(1), assetCid: bondCid } } });
     toast(role + ' quote sealed'); refresh();
   } catch (e) { toast(e.message, true); }
 }

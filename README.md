@@ -43,7 +43,7 @@ Why Vickrey? Dealers can quote their true reserve price without shading — the 
 Two packages, so the deployable model DAR carries no test/script code:
 
 ```
-daml/Bisik.daml           model — the whole product (bisik-0.1.0.dar → deploy this)
+daml/Bisik.daml           model — the whole product (bisik-0.2.0.dar → deploy this)
 test/daml/BisikTest.daml  end-to-end script + privacy assertions
 test/daml/Init.daml       on-ledger seed: parties + an open RFQ (LocalNet/Devnet demo)
 web/                      the desk UI: 3 party views + JSON Ledger API proxy (Node stdlib)
@@ -68,7 +68,7 @@ Or run the three pieces by hand:
 
 ```bash
 daml build --all
-daml sandbox --dar .daml/dist/bisik-0.1.0.dar --json-api-port 7575
+daml sandbox --dar .daml/dist/bisik-0.2.0.dar --json-api-port 7575
 daml script --dar test/.daml/dist/bisik-test-0.1.0.dar \
   --script-name Init:initialize --ledger-host localhost --ledger-port 6865
 cd web && npm start
@@ -83,7 +83,7 @@ settles atomically. Point the UI at Devnet instead by setting
 ## Run it
 
 ```bash
-daml build --all    # bisik-0.1.0.dar (model) + bisik-test-0.1.0.dar
+daml build --all    # bisik-0.2.0.dar (model) + bisik-test-0.1.0.dar
 cd test && daml test # testBisik: mint → RFQ → sealed quotes → Vickrey DvP
                      # + privacy assertions (dealer B cannot query dealer A's quote)
 ```
@@ -96,7 +96,7 @@ DAR, allocates + grants parties, and seeds a live RFQ with two sealed quotes.
 
 ```bash
 cp scripts/.env.devnet.example scripts/.env.devnet   # fill client secret (Encode #general)
-node scripts/devnet.mjs upload .daml/dist/bisik-0.1.0.dar
+node scripts/devnet.mjs upload .daml/dist/bisik-0.2.0.dar
 node scripts/devnet.mjs seed        # parties + holdings + RFQ + 2 sealed quotes
 node scripts/devnet.mjs verify      # prints per-party visibility (the privacy proof)
 # then serve the UI against Devnet (token auto-injected by the proxy):
@@ -111,17 +111,17 @@ cd web && LEDGER_JSON_URL=https://ledger-api.validator.devnet.sandbox.fivenorth.
 
 **Live deployment facts**
 - Ledger API: `https://ledger-api.validator.devnet.sandbox.fivenorth.io`
-- Model package id: `906f2697a2d0db695c3cf6ad8b28d8960507cd18ca08689f4e995013fb3add3f`
-- Parties (shared namespace `…::1220a14ca128…`): `bisik-buyer-1`, `bisik-dealerA-1`,
-  `bisik-dealerB-1`, `bisik-regulator-1`, `bisik-cashissuer-1`, `bisik-bondissuer-1`
+- Model package id (`bisik` v0.2.0): `e6ff0be7d7a92db14894c46ca30c46e82045966ec82eb026193b1ade418ba905`
+- Parties (shared namespace `…::1220a14ca128…`): `bisik-v2-buyer`, `bisik-v2-dealerA`,
+  `bisik-v2-dealerB`, `bisik-v2-regulator`, `bisik-v2-cashissuer`, `bisik-v2-bondissuer`
 - On-ledger `verify` result — Dealer A and Dealer B each see **only their own**
   Quote; the Regulator sees nothing pre-trade. Privacy proven on Devnet, not sandbox.
 
 `verify` on Devnet prints:
 ```
-buyer      {"Holding":2,"RFQ":1,"EscrowedHolding":2,"Quote":2} quotes from: bisik-dealerA,bisik-dealerB
-dealerA    {"Holding":1,"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-dealerA
-dealerB    {"Holding":1,"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-dealerB
+buyer      {"Holding":1,"RFQ":1,"EscrowedHolding":2,"Quote":2} quotes from: bisik-v2-dealerA,bisik-v2-dealerB
+dealerA    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v2-dealerA
+dealerB    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v2-dealerB
 regulator  {}
 ```
 
@@ -137,6 +137,7 @@ regulator  {}
 - **Demo storyboard** — `DEMO-SCRIPT.md` (3-min video, the money shot beat by beat)
 - **Screen capture** — `media/` (per-step screenshots + a silent video to narrate over)
 - **Deck outline** — `DECK.md`
+- **QA & review notes** — `QA.md` (multi-angle review: bugs fixed, accepted scope, opportunities)
 
 ## License
 
