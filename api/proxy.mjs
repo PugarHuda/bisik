@@ -65,6 +65,16 @@ export default async function handler(req, res) {
 
   if (!ALLOW.some((a) => a.p === path && a.m === req.method))
     return res.status(403).json({ error: 'read-only public demo — writes are disabled', readOnly: true });
+
+  // Defense-in-depth on a SHARED validator: active-contracts is a read, but scope
+  // it to THIS desk's own parties. Otherwise a public caller could reuse the shared
+  // M2M token to enumerate any other party the token happens to have readAs for.
+  if (path === 'v2/state/active-contracts') {
+    const known = new Set(Object.values(PARTIES));
+    const asked = Object.keys(req.body?.filter?.filtersByParty ?? {});
+    if (!asked.length || !asked.every((p) => known.has(p)))
+      return res.status(403).json({ error: 'read-only demo: queries are scoped to the Bisik desk parties', readOnly: true });
+  }
   if (!LEDGER) return res.status(500).json({ error: 'ledger not configured (set DEVNET_LEDGER_URL)' });
 
   try {
