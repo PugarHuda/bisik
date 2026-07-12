@@ -14,7 +14,7 @@
     font:16px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
   .deck{height:100vh;overflow:hidden}
   .slide{height:100vh;width:100vw;display:none;flex-direction:column;justify-content:center;
-    padding:6vh 9vw;position:relative}
+    padding:6vh 9vw;position:relative;overflow-y:auto}
   .slide.on{display:flex}
   h1{font-size:clamp(2rem,5vw,4rem);letter-spacing:-.02em;line-height:1.05}
   h2{font-size:clamp(1.4rem,3.2vw,2.4rem);letter-spacing:-.02em;margin-bottom:.6em}
@@ -56,7 +56,7 @@
     <h1>bisik<span class="dot">.</span></h1>
     <p class="lede">You whisper quotes. The market hears nothing.</p>
     <p style="margin-top:1.6em" class="big">A confidential multi-dealer RFQ desk for OTC block trades — native on Canton.</p>
-    <p class="muted" style="margin-top:1.2em">Build on Canton Hackathon · Private DeFi &amp; Capital Markets · team “Diam”</p>
+    <p class="muted" style="margin-top:1.2em">Build on Canton Hackathon · Private DeFi &amp; Capital Markets · team “Diam” (named after our first build in the series below)</p>
   </section>
 
   <section class="slide">
@@ -74,7 +74,7 @@
   <section class="slide">
     <div class="brandmark">bisik<span class="dot">.</span></div>
     <div class="kicker">What Bisik is</div>
-    <h2>A sealed-bid RFQ desk where fairness is enforced, not promised.</h2>
+    <h2>A sealed-bid RFQ desk where the guarantees are code, not a middleman.</h2>
     <ul>
       <li>Buyer requests quotes from a <span class="accent">chosen dealer panel</span> — the market never sees the RFQ.</li>
       <li>Each dealer’s quote is <span class="accent">sealed</span> — rival dealers never receive it.</li>
@@ -102,7 +102,7 @@ SubmitQuote    dealer locks the asset into escrow + seals a Quote
 Award          cheapest ask wins, paid the 2nd price · atomic DvP
   ↓            cash → dealer + asset → buyer, both legs or neither
 TradeReport    regulator sees the settled trade — post-trade only</div>
-    <p class="lede">Privacy = Canton sub-transaction privacy. Fairness = the Vickrey rule, in the contract. Settlement = atomic DvP.</p>
+    <p class="lede">Privacy = Canton sub-transaction privacy. Pricing = the Vickrey rule computed in the <code>Award</code> choice. Settlement = atomic DvP.</p>
   </section>
 
   <section class="slide">

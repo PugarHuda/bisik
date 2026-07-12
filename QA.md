@@ -146,6 +146,36 @@ the deploy tooling. Each finding below was re-verified before acting.
 - ✔ Checked clean: `.env.devnet` untracked, `.example` empty, no secret ever
   logged, npm scripts map to real files, DAR filenames consistent.
 
+## Pass 3 — cross-artifact + untouched-surface review, runtime verification
+
+A third reviewer swept the surfaces the first two didn't (deck, recorder, static
+UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
+
+- ✅ **Windows demo was broken.** `demo-local.mjs` spawned the web server via
+  `process.execPath` (`C:\Program Files\nodejs\node.exe`) with `shell:true`, so
+  the Windows shell split on the space (`'C:\Program' is not recognized`) — the
+  sandbox booted but the desk never started. Now spawned with `shell:false`.
+- ✅ **Dealer ask input was wiped every 1.8s.** `renderDealer` replaced the panel
+  `innerHTML` on every poll, clobbering a half-typed price and focus. Now skips
+  re-rendering a panel while one of its inputs is focused.
+- ✅ **Award flow verified end-to-end through the UI on v0.3.0** — Vickrey
+  second-price settlement, atomic DvP, escrow return, regulator post-trade only.
+  `record.mjs` now asserts each concrete state (winner card, awardable button,
+  a settled trade) and fails on any error toast instead of screenshotting blind.
+- ✅ **Deck / demo-script consistency.** Removed the "Vickrey enforced on-ledger"
+  overclaim (the buyer-as-auctioneer curates the quote set); reworded to "the
+  Award choice computes the clearing on-ledger". Clarified the team name "Diam"
+  vs the first build "Diam" so it doesn't read as a typo.
+- ✅ **Responsive desk** — added a `max-width:900px` single-column media query.
+- ⚠️ **Issuer binding is only active where issuers are supplied.** `optional True
+  (== issuer) None` disables the check, and the UI sends `None` on the local
+  sandbox (no server config), so sandbox-created RFQs are unbound. The seeded
+  Devnet deployment binds them. A production token standard (CIP-0056) removes
+  this fail-open default. Accepted scope, stated plainly.
+- ✔ Reviewer confirmed the pass-2 fixes are sound: `DeliverTo`'s dual control
+  doesn't deadlock `WithdrawQuote` (buyer authority comes statically from the
+  Quote signatory), `Init.daml` is correct, and `record.mjs` selectors match.
+
 ## Opportunities (not done — future work)
 
 - CIP-0056 token standard for the cash/asset legs (wallet interop, real DvP).

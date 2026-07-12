@@ -153,6 +153,10 @@ function renderBuyer(mine) {
 }
 
 function renderDealer(role, mine) {
+  const panel = document.getElementById('body-' + role);
+  // Don't clobber a half-typed ask price (and focus) mid-edit — the poll runs
+  // every 1.8s and would otherwise reset the input to its default each tick.
+  if (panel.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
   const party = P[role];
   const rfqs = mine.filter((c) => is(c, 'RFQ')); // dealer observes only RFQs they're invited to
   const myQuotes = mine.filter((c) => is(c, 'Quote') && c.arg.dealer === party);
@@ -178,7 +182,7 @@ function renderDealer(role, mine) {
       <div class="card"><div class="row"><span>your quote</span><span class="price">${fmt(q.arg.price)}</span></div>
       <div class="sub">${esc(q.arg.instrument)} · ${fmt(q.arg.quantity)} · sealed to buyer only</div></div>`).join('');
 
-  document.getElementById('body-' + role).innerHTML = `
+  panel.innerHTML = `
     <div class="block"><h3>Incoming RFQs</h3><div class="list">${rfqCards || '<div class="empty">none</div>'}</div></div>
     <div class="block"><h3>Your quotes <span class="hint">(rivals can't see these)</span></h3>
       <div class="list">${mineCards || '<div class="blind">You only ever see your own quotes.<br>Rival dealers’ quotes are never sent to your node.</div>'}</div></div>

@@ -34,6 +34,8 @@ body {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
   background: var(--line); min-height: calc(100vh - 160px);
 }
+@media (max-width: 900px) { .desk { grid-template-columns: 1fr; } }
+.form input { max-width: 100%; }
 .panel { background: var(--panel); display: flex; flex-direction: column; }
 .panel[data-role="buyer"] { border-top: 3px solid var(--buyer); }
 .panel[data-role="dealerA"] { border-top: 3px solid var(--dealerA); }
