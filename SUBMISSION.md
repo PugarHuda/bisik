@@ -96,6 +96,8 @@ pre-trade. Full Devnet deploy steps in `README.md`; the multi-angle QA record in
 - [x] Public repository — github.com/PugarHuda/bisik
 - [x] Deployed live on Canton Devnet (not LocalNet) — verified on-ledger
 - [x] Link to live product — **https://bisik-eight.vercel.app** (hosted, read-only over live Devnet) + `npm run demo`
-- [x] Presentation deck — `slides/index.html`
+- [x] Presentation deck — `slides/bisik-deck.pdf` (10 slides)
 - [ ] 3-minute video pitch + demo — **record with your own voice** (Encode rule);
-      storyboard in `DEMO-SCRIPT.md`, silent capture in `media/`
+      read-aloud script in `DEMO-VO.md`, storyboard in `DEMO-SCRIPT.md`, captures in `media/`
+
+Deadline: **Monday 13 July 2026, 12:59 BST = 11:59 UTC = 18:59 WIB** (no extensions).
