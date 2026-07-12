@@ -139,8 +139,22 @@ agent → list_settlements        → the post-trade audit trail
 
 Tools: `explain_desk`, `party_view`, `list_settlements`, `market_snapshot` — all
 read-only, no signing. Drop `.mcp.json` into Claude Desktop / Cursor, or
-`cd mcp && npm install && npm start`. See `mcp/README.md`. This spans two hackathon
-themes on one confidential ledger: Private DeFi and agentic commerce with privacy.
+`cd mcp && npm install && npm start`. See `mcp/README.md`.
+
+And the *acting* side — an **autonomous market-maker agent** (`scripts/agent.mjs`):
+a software agent, acting as a dealer, watches the ledger for RFQs it's invited to
+and auto-submits a sealed quote priced by its own rule. It only ever sees its own
+invitations (Canton privacy), so it quotes **blind**, like a real market maker —
+it can't peek at rival quotes.
+
+```bash
+npm run agent:demo   # self-contained: posts an RFQ, the agent detects it and quotes
+# → detected RFQ TBOND30 ×1000 → sealed quote 4,242,000 (ref 4,200,000 + 100bps)
+```
+
+Together these span two hackathon themes on one confidential ledger: Private DeFi
+and agentic commerce with privacy — an agent that both *reads* (verifies privacy)
+and *acts* (quotes) on a market where it structurally cannot see its rivals.
 
 ## Honest scope
 
