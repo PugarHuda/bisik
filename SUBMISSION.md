@@ -66,15 +66,31 @@ alternatives.
 - Demo video: _(add your 3-min narrated video link)_
 - Deck: `slides/index.html` (open in a browser; print → PDF)
 
-## How to run (for judges)
+## How judges try it
+
+**1 · Fastest — nothing to install (~30s).** Open **https://bisik-eight.vercel.app**
+→ *Open the desk*. You see three party lenses on the **live Canton Devnet** ledger: the
+buyer holds both sealed quotes, each dealer sees only its own, the regulator sees only
+the settled trade. That blindness is the ledger model, not UI hiding — proof the
+contracts are running on Devnet with real sub-transaction privacy.
+
+> The public desk is **read-only by design**: it proxies *reads* to Devnet with the
+> validator token kept server-side and blocks every write, so a public URL can never
+> drive the shared validator. To click the flow yourself, run it locally ↓ — or watch
+> the 3-min video, which drives the full award end-to-end.
+
+**2 · Full interactive (local, one command).**
 ```bash
-daml build --all && cd test && daml test   # 14 tests green
-npm run demo                                # one command: sandbox → seed → desk :8080
+daml build --all && cd test && daml test   # 15 scripts green (incl. privacy + Vickrey + a settled trade)
+npm run demo                                # sandbox → seed → desk at http://localhost:8080
+#   → open http://localhost:8080, create an RFQ, quote as both dealers, Award (Vickrey)
 npm run agent:demo                          # the autonomous market-maker quotes an RFQ
-cd mcp && npm install && npm start          # the desk as MCP tools
+cd mcp && npm install && npm start          # the desk as read-only MCP tools for an AI agent
 ```
-Full Devnet deploy + verify steps and the privacy proof are in `README.md`; the
-multi-angle QA record is in `QA.md`.
+
+**3 · Verify the Devnet privacy claim directly.** `npm run devnet:verify` prints each
+party's on-ledger contract counts — dealers see only their own quote, regulator nothing
+pre-trade. Full Devnet deploy steps in `README.md`; the multi-angle QA record in `QA.md`.
 
 ## Submission checklist
 - [x] Public repository — github.com/PugarHuda/bisik
