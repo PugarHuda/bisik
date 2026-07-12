@@ -108,7 +108,9 @@ function enterReadOnly() {
   const bar = document.createElement('div');
   bar.textContent = 'Read-only public demo · live Canton Devnet state — actions are disabled. Clone the repo and run `npm run demo` to drive it.';
   bar.style.cssText = 'position:sticky;top:0;z-index:10;padding:6px 12px;font-size:13px;text-align:center;background:#1c2733;color:#8fb4d6;border-bottom:1px solid #2a3947';
-  document.body.prepend(bar);
+  // Insert inside .main (not <body>) — <body class="app"> is a CSS grid, and a
+  // banner as a grid child would steal a cell and break the sidebar/desk layout.
+  (document.querySelector('.main') ?? document.body).prepend(bar);
 }
 
 // ---- discovery ----

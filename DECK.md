@@ -74,4 +74,4 @@ today → CIP-0056 token standard next; MPC to hide bids from the settler too.
 
 **10 · Close**
 Bisik. The confidential OTC desk that finally didn't need a cryptography stack —
-because Canton already is one. *Live on Devnet · repo · demo.*
+because Canton already is one. *Live on Devnet · github.com/PugarHuda/bisik · bisik-eight.vercel.app*
