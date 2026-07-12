@@ -47,6 +47,7 @@ daml/Bisik.daml           model — the whole product (bisik-0.3.0.dar → deplo
 test/daml/BisikTest.daml  end-to-end script + privacy assertions
 test/daml/Init.daml       on-ledger seed: parties + an open RFQ (LocalNet/Devnet demo)
 web/                      the desk UI: 3 party views + JSON Ledger API proxy (Node stdlib)
+mcp/                      read-only MCP server — the desk as AI-native tools
 multi-package.yaml        workspace
 ```
 
@@ -123,6 +124,23 @@ dealerA    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v3-dealerA
 dealerB    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v3-dealerB
 regulator  {}
 ```
+
+## Agentic access (MCP) — Private DeFi × agentic commerce
+
+Bisik ships a read-only [MCP](https://modelcontextprotocol.io) server (`mcp/`) that
+exposes the live desk to AI agents. The compelling part: an agent can **verify
+Canton's privacy model for itself**, not take it on faith.
+
+```
+agent → party_view("dealerA")  → {"RFQ":1,"EscrowedHolding":1,"Quote":1}  (only its own quote)
+agent → party_view("regulator") → {}  (nothing pre-trade)
+agent → list_settlements        → the post-trade audit trail
+```
+
+Tools: `explain_desk`, `party_view`, `list_settlements`, `market_snapshot` — all
+read-only, no signing. Drop `.mcp.json` into Claude Desktop / Cursor, or
+`cd mcp && npm install && npm start`. See `mcp/README.md`. This spans two hackathon
+themes on one confidential ledger: Private DeFi and agentic commerce with privacy.
 
 ## Honest scope
 
