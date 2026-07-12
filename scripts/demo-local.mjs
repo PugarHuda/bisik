@@ -2,7 +2,7 @@
 //   node scripts/demo-local.mjs [--full]
 // --full seeds an RFQ + two quotes; default seeds holdings only (drive live in UI).
 // Ctrl+C tears everything down. Node stdlib only.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,20 +17,30 @@ const damlCmd = process.env.DAML_CMD
   ?? (process.platform === 'win32' ? join(process.env.APPDATA ?? '', 'daml', 'bin', 'daml.cmd') : 'daml');
 function findJavaHome() {
   if (process.env.JAVA_HOME && existsSync(process.env.JAVA_HOME)) return process.env.JAVA_HOME;
-  const guesses = [
+  const bases = [
     join(process.env.LOCALAPPDATA ?? '', 'Programs', 'temurin21'),
+    join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Eclipse Adoptium'),
+    join(process.env.ProgramFiles ?? '', 'Eclipse Adoptium'),
+    join(process.env.ProgramFiles ?? '', 'Java'),
+    join(process.env.ProgramFiles ?? '', 'Microsoft'),
+    '/usr/lib/jvm', '/Library/Java/JavaVirtualMachines',
   ];
-  for (const base of guesses) {
+  for (const base of bases) {
     try {
-      const jdk = readdirSync(base).find((d) => d.startsWith('jdk'));
+      const jdk = readdirSync(base).find((d) => d.toLowerCase().includes('jdk') || d.startsWith('temurin'));
       if (jdk) return join(base, jdk);
     } catch {}
   }
-  return process.env.JAVA_HOME;
+  return undefined;
 }
 const javaHome = findJavaHome();
 const env = { ...process.env };
 if (javaHome) { env.JAVA_HOME = javaHome; env.PATH = join(javaHome, 'bin') + (process.platform === 'win32' ? ';' : ':') + env.PATH; }
+// Fail fast if there is no JVM at all — the sandbox would otherwise die cryptically 1-2 min in.
+if (!javaHome && spawnSync('java', ['-version']).error) {
+  console.error('No JDK found. Install Java 21 (Eclipse Temurin) and set JAVA_HOME, then retry.');
+  process.exit(1);
+}
 
 const kids = [];
 const spawnKid = (label, cmd, args, opts = {}) => {
@@ -60,7 +70,16 @@ const waitFor = async (pred, ms = 180000) => {
   throw new Error('timeout');
 };
 
-function cleanup() { for (const k of kids) { try { k.kill(); } catch {} } }
+// On Windows, k.kill() only signals the cmd.exe wrapper, leaving the JVM and web
+// server orphaned on their ports. Kill the whole process tree.
+function cleanup() {
+  for (const k of kids) {
+    try {
+      if (process.platform === 'win32' && k.pid) spawnSync('taskkill', ['/PID', String(k.pid), '/T', '/F']);
+      else k.kill();
+    } catch {}
+  }
+}
 process.on('SIGINT', () => { console.log('\nshutting down…'); cleanup(); process.exit(0); });
 process.on('exit', cleanup);
 
@@ -73,7 +92,7 @@ process.on('exit', cleanup);
 
   console.log('· starting Canton sandbox (this takes ~1–2 min)…');
   spawnKid('sandbox', damlCmd, ['sandbox', '--port', '6865', '--json-api-port', '7575',
-    '--dar', '.daml/dist/bisik-0.2.0.dar', '--json-api-port-file', portFile,
+    '--dar', '.daml/dist/bisik-0.3.0.dar', '--json-api-port-file', portFile,
     '--no-legacy-assistant-warning']);
   await waitFor(() => existsSync(portFile));
   // JSON API port opens before the participant connects to the synchronizer;

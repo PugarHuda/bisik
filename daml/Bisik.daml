@@ -54,13 +54,17 @@ template EscrowedHolding
   where
     signatory issuer, dealer
     observer buyer
+    ensure amount > 0.0
 
     -- Release the escrow to a recipient, re-materialising a Holding.
-    -- Controlled by the dealer; exercised inside Quote choices where the
-    -- dealer's authority is delegated via the Quote's signatories.
+    -- Requires BOTH dealer and buyer authority: the dealer cannot unilaterally
+    -- pull the collateral back out while its Quote is still live (which would
+    -- let them double-sell or poison the buyer's Award). Every legitimate
+    -- release runs inside a Quote choice, where dealer+buyer authority is
+    -- present via the Quote's signatories.
     choice DeliverTo : ContractId Holding
       with recipient : Party
-      controller dealer
+      controller dealer, buyer
       do create Holding with issuer; owner = recipient; instrument; amount
 
 -- Buyer requests quotes from a chosen dealer panel. The market never sees it;
@@ -73,6 +77,8 @@ template RFQ
     instrument : Text
     quantity : Decimal
     payInstrument : Text
+    assetIssuer : Optional Party -- if set, the asset leg must be issued by this party
+    payIssuer : Optional Party   -- if set, the cash leg must be issued by this party
   where
     signatory buyer
     observer invitedDealers
@@ -93,11 +99,12 @@ template RFQ
          assertMsg "asset not owned by dealer" (asset.owner == dealer)
          assertMsg "wrong instrument" (asset.instrument == instrument)
          assertMsg "wrong quantity" (asset.amount == quantity)
+         assertMsg "asset from unexpected issuer" (optional True (== asset.issuer) assetIssuer)
          escrowCid <- exercise assetCid Lock with buyer
          -- Stamp this RFQ's own id so a quote can only ever settle its RFQ,
          -- never cross-settle into another RFQ that shares instrument/size.
          create Quote with buyer; regulator; dealer; instrument; quantity
-                           payInstrument; price; escrowCid; rfqId = Some self
+                           payInstrument; price; escrowCid; rfqId = Some self; payIssuer
 
     -- Buyer settles against the submitted quotes: cheapest ask wins, but is
     -- paid the SECOND-cheapest price (reverse Vickrey), atomically DvP.
@@ -115,7 +122,9 @@ template RFQ
            -- Bind by the RFQ's own id: a quote settles this RFQ or nothing.
            assertMsg "quote belongs to a different RFQ" (q.rfqId == Some self)
            pure (cid, q)
-         let sorted = sortOn (\(_, q) -> q.price) quotes
+         -- Secondary sort on dealer makes the winner deterministic on a price
+         -- tie, independent of the order the buyer listed the quotes in.
+         let sorted = sortOn (\(_, q) -> (q.price, q.dealer)) quotes
          let (winCid, winQ) = head sorted
          let clearing = case sorted of
                _ :: (_, second) :: _ -> second.price
@@ -140,6 +149,7 @@ template Quote
     price : Decimal
     escrowCid : ContractId EscrowedHolding
     rfqId : Optional (ContractId RFQ) -- Optional so the template stays upgrade-compatible
+    payIssuer : Optional Party        -- expected issuer of the cash leg, from the RFQ
   where
     signatory dealer, buyer
 
@@ -155,6 +165,7 @@ template Quote
          cash <- fetch cashCid
          assertMsg "wrong cash instrument" (cash.instrument == payInstrument)
          assertMsg "cash owned by buyer" (cash.owner == buyer)
+         assertMsg "cash from unexpected issuer" (optional True (== cash.issuer) payIssuer)
          assertMsg "insufficient cash" (cash.amount >= clearingPrice)
          payCid <-
            if cash.amount == clearingPrice

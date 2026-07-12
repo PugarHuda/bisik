@@ -37,6 +37,7 @@ openRfq e dealers = submit e.buyer do
   createCmd RFQ with
     buyer = e.buyer; regulator = e.regulator; invitedDealers = dealers
     instrument = "TBOND30"; quantity = 1000.0; payInstrument = "USDC"
+    assetIssuer = Some e.bondIssuer; payIssuer = Some e.cashIssuer
 
 ownedBy : Party -> [(a, Holding)] -> [(Text, Decimal)]
 ownedBy p hs = sort [(h.instrument, h.amount) | (_, h) <- hs, h.owner == p]
@@ -151,3 +152,38 @@ testDuplicateQuoteRejected = do
   rfq <- openRfq e [dealerA]
   qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
   submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [qA, qA]; cashCid = cash
+
+-- A dealer cannot pull the escrowed asset back out on their own while the quote
+-- is live (that would enable double-selling and poison the buyer's Award).
+-- Releasing the escrow needs buyer authority too, present only inside Quote choices.
+testEscrowNotUnilaterallyReleasable : Script ()
+testEscrowNotUnilaterallyReleasable = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  bondA <- mintBond e dealerA
+  rfq <- openRfq e [dealerA]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  Some q <- queryContractId dealerA qA
+  submitMustFail dealerA do exerciseCmd q.escrowCid DeliverTo with recipient = dealerA
+
+-- A dealer cannot quote a self-issued counterfeit of the RFQ's asset.
+testCounterfeitAssetRejected : Script ()
+testCounterfeitAssetRejected = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  fakeBond <- submit dealerA do
+    createCmd Holding with issuer = dealerA; owner = dealerA; instrument = "TBOND30"; amount = 1000.0
+  rfq <- openRfq e [dealerA]
+  submitMustFail dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = fakeBond
+
+-- The buyer cannot settle with self-issued counterfeit cash.
+testCounterfeitCashRejected : Script ()
+testCounterfeitCashRejected = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  bondA <- mintBond e dealerA
+  fakeCash <- submit e.buyer do
+    createCmd Holding with issuer = e.buyer; owner = e.buyer; instrument = "USDC"; amount = 5000000.0
+  rfq <- openRfq e [dealerA]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [qA]; cashCid = fakeCash

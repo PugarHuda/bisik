@@ -4,20 +4,30 @@
 // ledger never sends it to Dealer B's node.
 
 const T = (t) => `Bisik:${t}`; // template-name suffix matcher
-let PKG = null;                // discovered model package id
+let PKG = null;                // discovered model package id (for fresh creates)
 let USER_ID = 'participant_admin';
+let CFG_PARTIES = {};          // issuer party ids from server config (DevNet)
 const P = {};                  // role -> full party id
-let awardable = null;          // { rfqCid, quoteCids, cashCid } when buyer can award
+let awardable = null;          // { rfqCid, tpl, quoteCids, cashCid } when buyer can award
 
 const api = async (path, method = 'GET', body) => {
-  const r = await fetch('/api' + path, {
-    method,
-    headers: { 'content-type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000); // a wedged gateway must not hang forever
+  let r;
+  try {
+    r = await fetch('/api' + path, {
+      method, signal: ctrl.signal,
+      headers: { 'content-type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } finally { clearTimeout(timer); }
   const text = await r.text();
   let json; try { json = JSON.parse(text); } catch { json = text; }
-  if (!r.ok) throw new Error(typeof json === 'string' ? json : (json.cause || json.error || text));
+  if (!r.ok) {
+    const msg = typeof json === 'string' ? json
+      : (json.cause || json.error || json.message || json.errors?.[0]?.message || text || `HTTP ${r.status}`);
+    throw new Error(msg);
+  }
   return json;
 };
 
@@ -31,7 +41,11 @@ const retryRead = async (fn, tries = 3) => {
   throw last;
 };
 
-const ledgerEnd = async () => (await api('/v2/state/ledger-end')).offset;
+const ledgerEnd = async () => {
+  const r = await api('/v2/state/ledger-end');
+  if (typeof r.offset !== 'number') throw new Error('ledger-end returned no offset');
+  return r.offset;
+};
 
 const acs = (party) => retryRead(async () => {
   const off = await ledgerEnd();
@@ -40,6 +54,7 @@ const acs = (party) => retryRead(async () => {
     verbose: true,
     activeAtOffset: off,
   });
+  if (!Array.isArray(rows)) throw new Error('active-contracts returned no array');
   return rows
     .map((r) => r.contractEntry?.JsActiveContract?.createdEvent)
     .filter(Boolean)
@@ -49,35 +64,43 @@ const acs = (party) => retryRead(async () => {
 const is = (c, name) => typeof c.tpl === 'string' && c.tpl.endsWith(T(name));
 
 const submit = async (party, cmd) => {
-  const commandId = 'ui-' + Math.floor(performance.now()) + '-' + Object.keys(cmd)[0];
+  const commandId = (crypto.randomUUID?.() ?? 'ui-' + Math.random().toString(36).slice(2) + Date.now());
   return api('/v2/commands/submit-and-wait-for-transaction', 'POST', {
     commands: { userId: USER_ID, commandId, actAs: [party], commands: [cmd] },
   });
 };
 
-const fmt = (n) => Number(n).toLocaleString('en-US');
+const fmt = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 10 });
 // Readable dealer name: the party id-hint (before ::), e.g. "bisik-dealerA-1" or "DealerA".
 const dealerLabel = (party) => esc(party.split('::')[0]);
 // Escape ledger-sourced strings before putting them in innerHTML (instrument, etc.).
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Validate a positive decimal from an input; return the trimmed string (no lossy
+// reformatting) or null. Daml Decimal accepts up to 10 fractional digits.
+const posDec = (raw) => {
+  const s = String(raw).trim();
+  const n = Number(s);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (/\.\d{11,}/.test(s)) return null; // more precision than Daml Decimal holds
+  return s.includes('.') ? s : s + '.0';
+};
 
-let toastEl;
+let toastEl, toastTimer;
 const toast = (msg, err = false) => {
   if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'toast'; document.body.appendChild(toastEl); }
   toastEl.textContent = msg;
   toastEl.className = 'toast show' + (err ? ' err' : '');
-  setTimeout(() => (toastEl.className = 'toast'), 2600);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (toastEl.className = 'toast'), 2600);
 };
 
 // ---- discovery ----
 async function loadParties(configParties) {
   if (configParties && configParties.buyer) {
-    // DevNet: use the known party IDs from server config.
-    Object.assign(P, configParties);
+    Object.assign(P, configParties); // DevNet: known party IDs from server config
   } else {
-    // Sandbox: discover by party-id-hint prefix.
-    const { partyDetails } = await api('/v2/parties');
+    const { partyDetails } = await api('/v2/parties'); // sandbox: discover by id-hint prefix
     const find = (pfx) => partyDetails.find((p) => p.party.startsWith(pfx + '-') || p.party.startsWith(pfx + '::'))?.party;
     P.buyer = find('Buyer'); P.dealerA = find('DealerA'); P.dealerB = find('DealerB'); P.regulator = find('Regulator');
   }
@@ -99,16 +122,21 @@ function renderBuyer(mine) {
   document.getElementById('buyer-holdings').innerHTML = holdingsHtml(mine, P.buyer);
 
   const rfqs = mine.filter((c) => is(c, 'RFQ'));
-  const quotes = mine.filter((c) => is(c, 'Quote'));
+  const allQuotes = mine.filter((c) => is(c, 'Quote'));
   const box = document.getElementById('buyer-quotes');
   awardable = null;
+
+  // Scope everything to ONE RFQ: the first that has quotes (else the first open).
+  const rfq = rfqs.find((r) => allQuotes.some((q) => q.arg.rfqId === r.cid)) ?? rfqs[0];
+  const quotes = rfq ? allQuotes.filter((q) => q.arg.rfqId === rfq.cid) : [];
 
   if (!quotes.length) {
     box.innerHTML = rfqs.length
       ? '<div class="empty">RFQ live — waiting for dealers to quote…</div>'
       : '<div class="empty">No quotes yet.</div>';
   } else {
-    const sorted = [...quotes].sort((a, b) => Number(a.arg.price) - Number(b.arg.price));
+    const sorted = [...quotes].sort((a, b) =>
+      Number(a.arg.price) - Number(b.arg.price) || a.arg.dealer.localeCompare(b.arg.dealer));
     const winCid = sorted[0].cid;
     const clearing = Number((sorted[1] ?? sorted[0]).arg.price);
     box.innerHTML = sorted.map((c) => `
@@ -117,28 +145,22 @@ function renderBuyer(mine) {
         <div class="sub">${esc(c.arg.instrument)} · ${fmt(c.arg.quantity)}${c.cid === winCid ? ' · winner, pays 2nd price ' + fmt(clearing) : ''}</div>
       </div>`).join('');
 
-    // Settle exactly the RFQ these quotes were made against (bound by rfqId),
-    // with a cash holding big enough for the clearing price.
-    const q0 = sorted[0].arg;
-    const rfq = rfqs.find((r) => r.cid === q0.rfqId)
-      ?? rfqs.find((r) => r.arg.instrument === q0.instrument && r.arg.payInstrument === q0.payInstrument);
-    const quotesForRfq = rfq ? sorted.filter((c) => c.arg.rfqId === rfq.cid || !c.arg.rfqId) : sorted;
     const cash = mine.find((c) => is(c, 'Holding') && c.arg.owner === P.buyer
-      && c.arg.instrument === q0.payInstrument && Number(c.arg.amount) >= clearing);
-    if (rfq && cash) awardable = { rfqCid: rfq.cid, quoteCids: quotesForRfq.map((c) => c.cid), cashCid: cash.cid };
+      && c.arg.instrument === rfq.arg.payInstrument && Number(c.arg.amount) >= clearing);
+    if (rfq && cash) awardable = { rfqCid: rfq.cid, tpl: rfq.tpl, quoteCids: sorted.map((c) => c.cid), cashCid: cash.cid };
   }
   document.getElementById('btn-award').disabled = !awardable;
 }
 
 function renderDealer(role, mine) {
   const party = P[role];
-  const rfqs = mine.filter((c) => is(c, 'RFQ')); // dealer is an observer of RFQs they're invited to
+  const rfqs = mine.filter((c) => is(c, 'RFQ')); // dealer observes only RFQs they're invited to
   const myQuotes = mine.filter((c) => is(c, 'Quote') && c.arg.dealer === party);
   const bonds = mine.filter((c) => is(c, 'Holding') && c.arg.owner === party);
-  const quotedInstruments = new Set(myQuotes.map((q) => q.arg.instrument));
+  const quotedRfqs = new Set(myQuotes.map((q) => q.arg.rfqId));
 
   const rfqCards = rfqs.map((r) => {
-    const already = quotedInstruments.has(r.arg.instrument);
+    const already = quotedRfqs.has(r.cid);
     const bond = bonds.find((b) => b.arg.instrument === r.arg.instrument && Number(b.arg.amount) === Number(r.arg.quantity));
     const canQuote = !already && bond;
     return `
@@ -147,7 +169,7 @@ function renderDealer(role, mine) {
         ${already ? '<div class="sub">you have quoted (sealed)</div>' :
           canQuote ? `<div class="form" style="margin-top:8px">
               <label>Ask (${esc(r.arg.payInstrument)}) <input type="number" id="ask-${role}-${r.cid}" value="4230000" /></label>
-              <button data-quote="${role}" data-rfq="${r.cid}" data-bond="${bond.cid}">Whisper sealed quote</button>
+              <button data-quote="${role}" data-rfq="${r.cid}" data-bond="${bond.cid}" data-tpl="${esc(r.tpl)}">Whisper sealed quote</button>
             </div>` : '<div class="sub">no matching asset to quote</div>'}
       </div>`;
   }).join('');
@@ -192,39 +214,54 @@ async function refresh() {
 
 const setLedger = (cls, msg) => { const el = document.getElementById('ledger-status'); el.className = 'ledger ' + cls; el.textContent = msg; };
 
-// ---- actions ----
+// ---- actions ---- (guarded so a double-click can't fire two submits)
+let acting = false;
+async function guarded(btn, fn) {
+  if (acting) return;
+  acting = true; if (btn) btn.disabled = true;
+  try { await fn(); }
+  finally { acting = false; if (btn) btn.disabled = false; }
+}
+
 async function createRFQ() {
   if (!PKG) return toast('package not discovered yet', true);
   const instrument = document.getElementById('rfq-instrument').value.trim();
   const payInstrument = document.getElementById('rfq-pay').value.trim();
-  const quantity = Number(document.getElementById('rfq-qty').value);
+  const quantity = posDec(document.getElementById('rfq-qty').value);
   if (!instrument || !payInstrument) return toast('instrument and pay currency are required', true);
-  if (!(quantity > 0)) return toast('quantity must be a positive number', true);
-  try {
-    await submit(P.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
-      buyer: P.buyer, regulator: P.regulator, invitedDealers: [P.dealerA, P.dealerB],
-      instrument, quantity: quantity.toFixed(1), payInstrument } } });
-    toast('RFQ sent to the dealer panel'); refresh();
-  } catch (e) { toast(e.message, true); }
+  if (!quantity) return toast('quantity must be a positive number', true);
+  await guarded(document.getElementById('btn-create-rfq'), async () => {
+    try {
+      await submit(P.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
+        buyer: P.buyer, regulator: P.regulator, invitedDealers: [P.dealerA, P.dealerB],
+        instrument, quantity, payInstrument,
+        assetIssuer: CFG_PARTIES.bondIssuer ?? null, payIssuer: CFG_PARTIES.cashIssuer ?? null } } });
+      toast('RFQ sent to the dealer panel'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
 }
 
-async function submitQuote(role, rfqCid, bondCid, price) {
-  const ask = Number(price);
-  if (!(ask > 0)) return toast('ask must be a positive number', true);
-  try {
-    await submit(P[role], { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfqCid,
-      choice: 'SubmitQuote', choiceArgument: { dealer: P[role], price: ask.toFixed(1), assetCid: bondCid } } });
-    toast(role + ' quote sealed'); refresh();
-  } catch (e) { toast(e.message, true); }
+async function submitQuote(role, rfqCid, bondCid, tpl, priceRaw, btn) {
+  const price = posDec(priceRaw);
+  if (!price) return toast('ask must be a positive number', true);
+  await guarded(btn, async () => {
+    try {
+      await submit(P[role], { ExerciseCommand: { templateId: tpl, contractId: rfqCid,
+        choice: 'SubmitQuote', choiceArgument: { dealer: P[role], price, assetCid: bondCid } } });
+      toast(role + ' quote sealed'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
 }
 
 async function award() {
   if (!awardable) return;
-  try {
-    await submit(P.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: awardable.rfqCid,
-      choice: 'Award', choiceArgument: { quoteCids: awardable.quoteCids, cashCid: awardable.cashCid } } });
-    toast('Awarded — atomic DvP at the Vickrey price'); refresh();
-  } catch (e) { toast(e.message, true); }
+  await guarded(document.getElementById('btn-award'), async () => {
+    try {
+      await submit(P.buyer, { ExerciseCommand: { templateId: awardable.tpl, contractId: awardable.rfqCid,
+        choice: 'Award', choiceArgument: { quoteCids: awardable.quoteCids, cashCid: awardable.cashCid } } });
+      toast('Awarded — atomic DvP at the Vickrey price'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
 }
 
 // ---- wire up ----
@@ -233,15 +270,21 @@ document.getElementById('btn-award').addEventListener('click', award);
 document.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-quote]');
   if (!b) return;
-  const role = b.dataset.quote, rfqCid = b.dataset.rfq, bondCid = b.dataset.bond;
+  const { quote: role, rfq: rfqCid, bond: bondCid, tpl } = b.dataset;
   const price = document.getElementById(`ask-${role}-${rfqCid}`).value;
-  submitQuote(role, rfqCid, bondCid, price);
+  submitQuote(role, rfqCid, bondCid, tpl, price, b);
 });
 
 (async function main() {
-  let cfg = {};
-  try { cfg = await (await fetch('/api/config')).json(); USER_ID = cfg.userId ?? USER_ID; } catch {}
-  if (!(await loadParties(cfg.parties))) { setLedger('err', 'demo parties not found — run seed'); return; }
-  await refresh();
-  setInterval(refresh, 1800);
+  try {
+    let cfg = {};
+    try { cfg = await (await fetch('/api/config')).json(); } catch {}
+    USER_ID = cfg.userId ?? USER_ID;
+    CFG_PARTIES = cfg.parties ?? {};
+    if (!(await loadParties(cfg.parties))) { setLedger('err', 'demo parties not found — run seed'); return; }
+    await refresh();
+    setInterval(refresh, 1800);
+  } catch (e) {
+    setLedger('err', 'startup failed: ' + (e?.message ?? e));
+  }
 })();

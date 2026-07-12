@@ -1,7 +1,7 @@
 // Bisik DevNet deploy/seed against the shared 5N hackathon validator.
 // Reads scripts/.env.devnet (gitignored). Node >= 20.
 //   node scripts/devnet.mjs probe
-//   node scripts/devnet.mjs upload .daml/dist/bisik-0.2.0.dar
+//   node scripts/devnet.mjs upload .daml/dist/bisik-0.3.0.dar
 //   node scripts/devnet.mjs allocate
 //   node scripts/devnet.mjs seed
 import { readFile, writeFile } from 'node:fs/promises';
@@ -49,16 +49,24 @@ async function token() {
   throw lastErr;
 }
 
-async function api(path, { method = 'GET', json, raw, contentType } = {}) {
-  const t = await token();
-  const headers = { authorization: `Bearer ${t}` };
-  let body;
-  if (json !== undefined) { headers['content-type'] = 'application/json'; body = JSON.stringify(json); }
-  else if (raw !== undefined) { headers['content-type'] = contentType ?? 'application/octet-stream'; body = raw; }
-  const r = await fetch(L() + path, { method, headers, body });
-  const text = await r.text();
-  let data; try { data = JSON.parse(text); } catch { data = text; }
-  return { status: r.status, ok: r.ok, data };
+async function api(path, { method = 'GET', json, raw, contentType, retry = false } = {}) {
+  let last;
+  for (let i = 0; i < (retry ? 5 : 1); i++) {
+    try {
+      const t = await token();
+      const headers = { authorization: `Bearer ${t}` };
+      let body;
+      if (json !== undefined) { headers['content-type'] = 'application/json'; body = JSON.stringify(json); }
+      else if (raw !== undefined) { headers['content-type'] = contentType ?? 'application/octet-stream'; body = raw; }
+      const r = await fetch(L() + path, { method, headers, body });
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch { data = text; }
+      if (r.ok || !retry || ![429, 500, 502, 503, 504].includes(r.status)) return { status: r.status, ok: r.ok, data };
+      last = `HTTP ${r.status}`;
+    } catch (e) { last = e; if (!retry) throw e; }
+    await new Promise((res) => setTimeout(res, 1200 * (i + 1)));
+  }
+  throw new Error('read failed after retries: ' + last);
 }
 
 const P = () => 'participant_admin'; // userId is derived from token sub; unused for commands here
@@ -91,8 +99,8 @@ const USER = '6';
 // v2 party set — isolates this deployment's (new package) contracts from any
 // earlier ones on the shared validator, so party queries return only our data.
 const HINTS = {
-  buyer: 'bisik-v2-buyer', dealerA: 'bisik-v2-dealerA', dealerB: 'bisik-v2-dealerB',
-  regulator: 'bisik-v2-regulator', cashIssuer: 'bisik-v2-cashissuer', bondIssuer: 'bisik-v2-bondissuer',
+  buyer: 'bisik-v3-buyer', dealerA: 'bisik-v3-dealerA', dealerB: 'bisik-v3-dealerB',
+  regulator: 'bisik-v3-regulator', cashIssuer: 'bisik-v3-cashissuer', bondIssuer: 'bisik-v3-bondissuer',
 };
 
 async function namespace() {
@@ -139,9 +147,9 @@ async function allocate() {
   console.log('wrote scripts/devnet.parties.json');
 }
 
-// Main package id of .daml/dist/bisik-0.2.0.dar. Regenerate after a model change
-// with: daml damlc inspect-dar --json .daml/dist/bisik-0.2.0.dar  (or set BISIK_PKG).
-const PKG = process.env.BISIK_PKG ?? 'e6ff0be7d7a92db14894c46ca30c46e82045966ec82eb026193b1ade418ba905';
+// Main package id of .daml/dist/bisik-0.3.0.dar. Regenerate after a model change
+// with: daml damlc inspect-dar --json .daml/dist/bisik-0.3.0.dar  (or set BISIK_PKG).
+const PKG = process.env.BISIK_PKG ?? '89a5666b5d26c103f052daf4578cfce2819300410d6f7444e1065e9c2baa462a';
 let CID = 0;
 async function submit(actAs, command) {
   const commandId = `bisik-${Date.now()}-${CID++}`; // stable across retries → dedup on the ledger
@@ -178,6 +186,14 @@ async function seed() {
   console.log('parties ready:');
   for (const [r, v] of Object.entries(p)) console.log('  ', r.padEnd(11), v);
 
+  // Idempotent: if this party set already has a live RFQ, don't double-seed.
+  const existing = (await acsAs(p.buyer)).filter((e) => e.templateId.endsWith(':Bisik:RFQ'));
+  if (existing.length) {
+    await writeFile(join(HERE, 'devnet.parties.json'), JSON.stringify(p, null, 2));
+    console.log(`already seeded (${existing.length} live RFQ) — run "cleanup" or use fresh party hints to reseed.`);
+    return;
+  }
+
   const cash = cidOf(await submit(p.cashIssuer, createHolding(p.cashIssuer, p.buyer, 'USDC', '5000000.0')));
   const bondA = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerA, 'TBOND30', '1000.0')));
   const bondB = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerB, 'TBOND30', '1000.0')));
@@ -185,7 +201,8 @@ async function seed() {
 
   const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
     buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
-    instrument: 'TBOND30', quantity: '1000.0', payInstrument: 'USDC' } } }));
+    instrument: 'TBOND30', quantity: '1000.0', payInstrument: 'USDC',
+    assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer } } }));
   console.log('RFQ live:', rfq.slice(0, 24) + '…');
 
   const quote = (dealer, price, assetCid) => ({ ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`,
@@ -199,11 +216,12 @@ async function seed() {
 }
 
 async function acsAs(party) {
-  const off = (await api('/v2/state/ledger-end')).data.offset;
-  const r = await api('/v2/state/active-contracts', { method: 'POST', json: {
+  const off = (await api('/v2/state/ledger-end', { retry: true })).data?.offset;
+  if (typeof off !== 'number') throw new Error('ledger-end returned no offset (devnet unreachable?)');
+  const r = await api('/v2/state/active-contracts', { method: 'POST', retry: true, json: {
     filter: { filtersByParty: { [party]: { cumulative: [] } } }, verbose: true, activeAtOffset: off } });
-  return (Array.isArray(r.data) ? r.data : [])
-    .map((x) => x.contractEntry?.JsActiveContract?.createdEvent).filter(Boolean);
+  if (!Array.isArray(r.data)) throw new Error('active-contracts returned no array: ' + JSON.stringify(r.data).slice(0, 120));
+  return r.data.map((x) => x.contractEntry?.JsActiveContract?.createdEvent).filter(Boolean);
 }
 
 async function verify() {
@@ -238,7 +256,7 @@ const cmd = process.argv[2];
   ENV = await loadEnv();
   if (cmd === 'probe') await probe();
   else if (cmd === 'cleanup') await cleanup();
-  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.2.0.dar');
+  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.3.0.dar');
   else if (cmd === 'allocate-one') console.log(await allocateOne(process.argv[3] ?? 'bisik-probe-1'));
   else if (cmd === 'allocate') await allocate();
   else if (cmd === 'seed') await seed();

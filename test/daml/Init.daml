@@ -57,6 +57,7 @@ initialize = do
       buyer = p.buyer; regulator = p.regulator
       invitedDealers = [p.dealerA, p.dealerB]
       instrument = "TBOND30"; quantity = 1000.0; payInstrument = "USDC"
+      assetIssuer = Some p.bondIssuer; payIssuer = Some p.cashIssuer
   _ <- submit p.dealerA do
     exerciseCmd rfq SubmitQuote with dealer = p.dealerA; price = 4210000.0; assetCid = bondA
   _ <- submit p.dealerB do

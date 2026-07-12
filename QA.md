@@ -72,10 +72,85 @@ marked ✅ were fixed in this pass; ⚠️ are accepted/known scope with rationa
   Covers: happy path, privacy, 1/2/3-quote Vickrey, insufficient cash, withdraw,
   cross-RFQ rejection, duplicate rejection.
 
+## Pass 2 — adversarial multi-agent review (Daml, web, tooling)
+
+Three independent adversarial reviewers audited the model, the web layer, and
+the deploy tooling. Each finding below was re-verified before acting.
+
+### Model (→ shipped as v0.3.0)
+- ✅ **CRITICAL — escrow was unilaterally revocable.** `EscrowedHolding.DeliverTo`
+  was `controller dealer`, so a dealer alone could pull the collateral back out
+  while their Quote stayed live — enabling double-selling and poisoning the
+  buyer's `Award`. Now `controller dealer, buyer`; every legitimate release runs
+  inside a Quote choice (which carries both authorities), a standalone dealer
+  command cannot. Test: `testEscrowNotUnilaterallyReleasable`.
+- ✅ **HIGH — no issuer binding (counterfeit assets/cash).** `Holding` is
+  self-issued and neither leg checked the issuer, so a dealer could quote a
+  self-issued fake bond, or a buyer settle with self-issued fake cash. Added
+  `assetIssuer`/`payIssuer` (Optional) to the RFQ; `SubmitQuote` and `SettleQuote`
+  enforce them. Tests: `testCounterfeitAssetRejected`, `testCounterfeitCashRejected`.
+- ✅ **LOW/MED — tie determinism.** `Award` now sorts by `(price, dealer)` so a
+  price tie resolves deterministically, independent of the buyer's list order.
+- ✅ **LOW — `EscrowedHolding` missing `ensure amount > 0.0`** — added.
+- ⚠️ **Buyer is the auctioneer (inherent).** Because only the buyer sees all
+  sealed quotes, the buyer alone runs the auction: they choose which quotes to
+  include in `Award` and thus the clearing price, and could settle a single quote
+  at first price. The contract guarantees no dealer is paid **below** their ask
+  and DvP atomicity — a buyer can only ever overpay. Forcing true second-price /
+  full-set inclusion needs a trusted third-party auctioneer or MPC. Documented in
+  README "Honest scope"; the earlier "Vickrey pricing rule is contract-enforced"
+  wording was an overclaim and has been corrected.
+- ⚠️ **`CancelRFQ` leaves outstanding escrows** — recoverable by each dealer via
+  `WithdrawQuote`; documented.
+
+### Web (server + app)
+- ✅ **HIGH — proxy bound to all interfaces with a privileged token.** The server
+  injected the DevNet Bearer on any `/api/v2/*` and listened on `0.0.0.0`, so any
+  LAN client could drive the ledger as `participant_admin`. Now binds `127.0.0.1`.
+- ✅ **HIGH — buyer winner/clearing computed across ALL RFQs.** `renderBuyer` now
+  scopes quotes/winner/clearing/cash to a single RFQ (by `rfqId`); dropped the
+  `|| !rfqId` escape hatch that pulled in foreign quotes.
+- ✅ **MED — hung request could freeze the poll loop.** `fetch` had no timeout, so
+  a wedged gateway left `busy = true` forever. Added an `AbortController` (12s).
+- ✅ **MED — exercises hard-coded the first-seen package id.** Now each exercise
+  uses the target contract's own `templateId`, so a package upgrade can't cause a
+  version-mismatch rejection.
+- ✅ **MED — token cache ignored `expires_in` and had no single-flight.** Server
+  now honors the IdP TTL and memoizes the in-flight token fetch (no thundering herd).
+- ✅ **MED — `toFixed(1)` silently rounded user input.** Replaced with `posDec()`
+  that validates and passes the value through unmangled.
+- ✅ **MED — no in-flight guard / weak commandId.** Buttons are disabled during a
+  submit; `commandId` is a `crypto.randomUUID()`.
+- ✅ **MED — bootstrap threw outside try/catch.** The whole `main()` is wrapped;
+  a startup ledger failure shows an error instead of hanging on "connecting…".
+- ✅ **LOW — static path guard was dead code.** Added a real
+  `resolve(...).startsWith(DIR)` check (traversal was already blocked by
+  `URL.pathname` normalization, but the guard is now real, not accidental).
+- ✅ **LOW — unexpected error shapes / toast timer stacking** — error parsing now
+  probes `message`/`errors[]`; toasts `clearTimeout` the previous handle.
+
+### Tooling & docs
+- ✅ **HIGH — Windows Ctrl+C orphaned the JVM + web server.** `cleanup()` now
+  `taskkill /T /F` the whole process tree on win32 (was only signalling cmd.exe).
+- ✅ **MED — `seed` was non-idempotent** (a second run made `verify` contradict the
+  README). `seed` now short-circuits if the party set already has a live RFQ.
+- ✅ **MED — read calls had no retry** → a transient blip made `verify` print an
+  empty (false) "no data" proof. `api()` reads now retry; `acsAs` fails loudly if
+  the ledger returns no offset/array.
+- ✅ **MED — `JAVA_HOME` auto-detect was a single path.** Now probes Temurin /
+  Program Files / common JVM dirs and fails fast with a clear message.
+- ✅ **LOW — secret on the command line.** The server reads `scripts/.env.devnet`
+  via `LEDGER_ENV_FILE`; the README no longer inlines the secret.
+- ✅ **LOW — no `LICENSE` file / version drift.** Added `LICENSE` (Apache-2.0),
+  set `package.json` `version`/`license`, added a `devnet:upload` script.
+- ✔ Checked clean: `.env.devnet` untracked, `.example` empty, no secret ever
+  logged, npm scripts map to real files, DAR filenames consistent.
+
 ## Opportunities (not done — future work)
 
 - CIP-0056 token standard for the cash/asset legs (wallet interop, real DvP).
 - Multi-instrument / multi-round RFQ; partial fills.
 - WebSocket update stream instead of polling.
-- MPC so even the settling buyer can't see losing bids.
+- MPC / trusted auctioneer so even the buyer can't see losing bids and the true
+  second price is forced.
 - Per-dealer one-quote enforcement if desired.
