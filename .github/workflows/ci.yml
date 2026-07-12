@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  daml:
+    name: Daml build + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Daml SDK 3.4.11
+        run: |
+          curl -sSL https://get.daml.com/ | sh -s 3.4.11
+          echo "$HOME/.daml/bin" >> "$GITHUB_PATH"
+
+      - name: daml build --all
+        run: daml build --all --no-legacy-assistant-warning
+
+      - name: daml test
+        working-directory: test
+        run: daml test --no-legacy-assistant-warning
+
+  js:
+    name: JS syntax checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax-check server, scripts, and MCP
+        run: |
+          for f in web/server.mjs web/app.js scripts/*.mjs mcp/server.mjs; do
+            echo "checking $f"
+            node --check "$f"
+          done

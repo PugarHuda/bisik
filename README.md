@@ -1,5 +1,7 @@
 # Bisik
 
+[![CI](https://github.com/PugarHuda/bisik/actions/workflows/ci.yml/badge.svg)](https://github.com/PugarHuda/bisik/actions/workflows/ci.yml)
+
 > *bisik* — Indonesian for "whisper". You whisper quotes. The market hears nothing.
 
 **Bisik is a confidential multi-dealer RFQ desk for OTC block trades, built native on the Canton Network.** A buyer requests quotes from a chosen dealer panel; each dealer's quote is sealed — competing dealers never receive it, the market never sees the RFQ, and the losing quotes are archived without ever being revealed. Settlement is atomic delivery-versus-payment at a Vickrey (second-price) clearing price. A regulator observes executed trades — and only executed trades.
