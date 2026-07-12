@@ -89,7 +89,11 @@ const posDec = (raw) => {
 
 let toastEl, toastTimer;
 const toast = (msg, err = false) => {
-  if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'toast'; document.body.appendChild(toastEl); }
+  if (!toastEl) {
+    toastEl = document.createElement('div'); toastEl.className = 'toast';
+    toastEl.setAttribute('role', 'status'); toastEl.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toastEl);
+  }
   toastEl.textContent = msg;
   toastEl.className = 'toast show' + (err ? ' err' : '');
   clearTimeout(toastTimer);
