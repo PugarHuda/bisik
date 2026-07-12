@@ -12,3 +12,5 @@ log/
 .env.*
 *.token
 !*.example
+
+.vercel

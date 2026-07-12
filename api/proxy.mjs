@@ -4,19 +4,25 @@
 // Devnet Bearer server-side) and hard-blocks every command submission, so a public
 // URL can never drive the ledger. The privileged token never leaves the server.
 //
+// Reached via a vercel.json rewrite: /api/(.*)  ->  /api/proxy?path=$1
+// so e.g. /api/v2/state/ledger-end arrives here as req.query.path = "v2/state/ledger-end".
+//
 // The interactive local desk (`npm run demo`) still uses web/server.mjs, which is
 // unchanged and stays bound to loopback. This function exists purely for hosting.
 //
-// Required Vercel env vars (from scripts/.env.devnet — the secret one is not in git):
+// Required Vercel env vars (from scripts/.env.devnet — the secret is not in git):
 //   DEVNET_LEDGER_URL DEVNET_TOKEN_URL DEVNET_CLIENT_ID DEVNET_CLIENT_SECRET
 //   DEVNET_AUDIENCE DEVNET_SCOPE   (optional: LEDGER_USER_ID, DEVNET_PARTIES)
 
-const LEDGER = (process.env.DEVNET_LEDGER_URL ?? '').replace(/\/$/, '');
-const USER_ID = process.env.LEDGER_USER_ID ?? '6';
-const OAUTH = process.env.DEVNET_TOKEN_URL ? {
-  url: process.env.DEVNET_TOKEN_URL, clientId: process.env.DEVNET_CLIENT_ID,
-  clientSecret: process.env.DEVNET_CLIENT_SECRET, audience: process.env.DEVNET_AUDIENCE,
-  scope: process.env.DEVNET_SCOPE,
+// Env values can arrive with a stray BOM/whitespace depending on how they were
+// set (e.g. a PowerShell pipe prepends a UTF-8 BOM); trim() drops U+FEFF too.
+const clean = (v) => (typeof v === 'string' ? v.trim() : v);
+const LEDGER = (clean(process.env.DEVNET_LEDGER_URL) ?? '').replace(/\/$/, '');
+const USER_ID = clean(process.env.LEDGER_USER_ID) ?? '6';
+const OAUTH = clean(process.env.DEVNET_TOKEN_URL) ? {
+  url: clean(process.env.DEVNET_TOKEN_URL), clientId: clean(process.env.DEVNET_CLIENT_ID),
+  clientSecret: clean(process.env.DEVNET_CLIENT_SECRET), audience: clean(process.env.DEVNET_AUDIENCE),
+  scope: clean(process.env.DEVNET_SCOPE),
 } : null;
 
 // Public (non-secret) party ids — matches scripts/devnet.parties.json. Override
@@ -52,7 +58,8 @@ async function token() {
 }
 
 export default async function handler(req, res) {
-  const path = [].concat(req.query.path ?? []).join('/');
+  const raw = req.query?.path;
+  const path = (Array.isArray(raw) ? raw.join('/') : String(raw ?? '')).replace(/^\/+/, '');
 
   if (path === 'config') return res.status(200).json({ userId: USER_ID, parties: PARTIES, readOnly: true });
 

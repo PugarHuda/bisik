@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const handler = (await import(pathToFileURL(join(HERE, '..', 'api', '[...path].mjs')).href)).default;
+const handler = (await import(pathToFileURL(join(HERE, '..', 'api', 'proxy.mjs')).href)).default;
 
 const res = () => ({ _s: 0, _j: null, status(c) { this._s = c; return this; },
   json(o) { this._j = o; return this; }, send() { return this; }, setHeader() {} });

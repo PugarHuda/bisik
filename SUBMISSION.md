@@ -57,7 +57,9 @@ alternatives.
 
 ## Links
 - Repository: https://github.com/PugarHuda/bisik
-- Live product: run `npm run demo` (local) or point the desk at Devnet (README)
+- Live product: **https://bisik-eight.vercel.app** — hosted read-only desk over
+  live Canton Devnet state (three party views prove the privacy model; actions are
+  disabled on the public URL). Full interactive: `npm run demo` (local).
 - Deployed on Canton Devnet: package `bf5d9a45…`, parties `bisik-v4-*` on the shared
   5N validator (`https://ledger-api.validator.devnet.sandbox.fivenorth.io`); the
   contracts are also visible in Seaport's contract explorer for the encode-hackathon org.
@@ -77,7 +79,7 @@ multi-angle QA record is in `QA.md`.
 ## Submission checklist
 - [x] Public repository — github.com/PugarHuda/bisik
 - [x] Deployed live on Canton Devnet (not LocalNet) — verified on-ledger
-- [x] Link to live product — `npm run demo` / Devnet-pointed desk
+- [x] Link to live product — **https://bisik-eight.vercel.app** (hosted, read-only over live Devnet) + `npm run demo`
 - [x] Presentation deck — `slides/index.html`
 - [ ] 3-minute video pitch + demo — **record with your own voice** (Encode rule);
       storyboard in `DEMO-SCRIPT.md`, silent capture in `media/`
