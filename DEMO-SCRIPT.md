@@ -5,8 +5,8 @@
 
 **Setup before recording:** run the local demo (README → Live demo), or point the
 UI at Devnet. Have the three-column desk open in one browser window. Have the
-Sepolia-equivalent — the Canton Devnet participant / a ledger explorer — in a
-second tab if deploying live.
+Canton Devnet participant / a ledger explorer (or the live site at
+bisik-eight.vercel.app) in a second tab if deploying live.
 
 ---
 
