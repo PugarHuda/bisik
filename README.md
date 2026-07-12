@@ -190,6 +190,7 @@ See `QA.md` for the full multi-angle review (bugs fixed, accepted scope, opportu
 - **Screen capture** — `media/` (per-step screenshots + a silent video to narrate over)
 - **Deck outline** — `DECK.md`
 - **QA & review notes** — `QA.md` (multi-angle review: bugs fixed, accepted scope, opportunities)
+- **Submission answers** — `SUBMISSION.md` (ready-to-paste form answers + judging-criteria map)
 
 ## License
 
