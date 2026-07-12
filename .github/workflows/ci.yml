@@ -39,9 +39,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Syntax-check server, scripts, and MCP
+      - name: Syntax-check server, scripts, MCP, and the hosted proxy
         run: |
-          for f in web/server.mjs web/app.js scripts/*.mjs mcp/server.mjs; do
+          for f in web/server.mjs web/app.js scripts/*.mjs mcp/server.mjs api/*.mjs; do
             echo "checking $f"
             node --check "$f"
           done
+      - name: Read-only proxy security self-check
+        run: node scripts/test-readonly-proxy.mjs

@@ -9,6 +9,7 @@ let USER_ID = 'participant_admin';
 let CFG_PARTIES = {};          // issuer party ids from server config (DevNet)
 const P = {};                  // role -> full party id
 let awardable = null;          // { rfqCid, tpl, quoteCids, cashCid } when buyer can award
+let READONLY = false;          // hosted public demo: the server allows reads only
 
 const api = async (path, method = 'GET', body) => {
   const ctrl = new AbortController();
@@ -95,6 +96,21 @@ const toast = (msg, err = false) => {
   toastTimer = setTimeout(() => (toastEl.className = 'toast'), 2600);
 };
 
+// Hosted public demo: the server proxies reads only. Reflect that in the UI —
+// disable the write buttons and show a banner. (Security is enforced server-side;
+// this is just so the buttons don't look broken.)
+function enterReadOnly() {
+  READONLY = true;
+  for (const id of ['btn-create-rfq', 'btn-award']) {
+    const b = document.getElementById(id);
+    if (b) { b.disabled = true; b.title = 'read-only public demo'; }
+  }
+  const bar = document.createElement('div');
+  bar.textContent = 'Read-only public demo · live Canton Devnet state — actions are disabled. Clone the repo and run `npm run demo` to drive it.';
+  bar.style.cssText = 'position:sticky;top:0;z-index:10;padding:6px 12px;font-size:13px;text-align:center;background:#1c2733;color:#8fb4d6;border-bottom:1px solid #2a3947';
+  document.body.prepend(bar);
+}
+
 // ---- discovery ----
 async function loadParties(configParties) {
   if (configParties && configParties.buyer) {
@@ -149,7 +165,7 @@ function renderBuyer(mine) {
       && c.arg.instrument === rfq.arg.payInstrument && Number(c.arg.amount) >= clearing);
     if (rfq && cash) awardable = { rfqCid: rfq.cid, tpl: rfq.tpl, quoteCids: sorted.map((c) => c.cid), cashCid: cash.cid };
   }
-  document.getElementById('btn-award').disabled = !awardable;
+  document.getElementById('btn-award').disabled = !awardable || READONLY;
 }
 
 function renderDealer(role, mine) {
@@ -166,7 +182,7 @@ function renderDealer(role, mine) {
   const rfqCards = rfqs.map((r) => {
     const already = quotedRfqs.has(r.cid);
     const bond = bonds.find((b) => b.arg.instrument === r.arg.instrument && Number(b.arg.amount) === Number(r.arg.quantity));
-    const canQuote = !already && bond;
+    const canQuote = !already && bond && !READONLY;
     return `
       <div class="card">
         <div class="row"><span>RFQ · ${esc(r.arg.instrument)}</span><span class="sub">qty ${fmt(r.arg.quantity)}</span></div>
@@ -288,6 +304,7 @@ document.addEventListener('click', (e) => {
     try { cfg = await (await fetch('/api/config')).json(); } catch {}
     USER_ID = cfg.userId ?? USER_ID;
     CFG_PARTIES = cfg.parties ?? {};
+    if (cfg.readOnly) enterReadOnly();
     if (!(await loadParties(cfg.parties))) { setLedger('err', 'demo parties not found — run seed'); return; }
     await refresh();
     setInterval(refresh, 1800);
