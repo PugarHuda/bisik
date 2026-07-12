@@ -42,9 +42,10 @@
   .big{font-size:clamp(1.3rem,2.4vw,1.9rem);line-height:1.4}
   .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.2em .8em;color:var(--muted);font-size:.85rem;margin-right:.4em}
   @media print{
-    .slide{display:flex !important;height:100vh;page-break-after:always;break-after:page}
+    .slide{display:flex !important;height:100vh;page-break-after:always;break-after:page;overflow:hidden}
+    .slide:last-child{page-break-after:auto;break-after:auto}
     .deck{height:auto;overflow:visible}
-    .nav{display:none}
+    .nav,.pagenum{display:none}
   }
 </style>
 </head>

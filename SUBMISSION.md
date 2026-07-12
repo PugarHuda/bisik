@@ -63,8 +63,8 @@ alternatives.
 - Deployed on Canton Devnet: package `bf5d9a45…`, parties `bisik-v4-*` on the shared
   5N validator (`https://ledger-api.validator.devnet.sandbox.fivenorth.io`); the
   contracts are also visible in Seaport's contract explorer for the encode-hackathon org.
-- Demo video: _(add your 3-min narrated video link)_
-- Deck: `slides/index.html` (open in a browser; print → PDF)
+- Demo video: _(record from `DEMO-VO.md` — read-aloud 3-min script — then paste the link here)_
+- Deck: **`slides/bisik-deck.pdf`** (10 slides, pre-rendered) · source `slides/index.html`
 
 ## How judges try it
 
