@@ -81,8 +81,10 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
 // reformatting) or null. Daml Decimal accepts up to 10 fractional digits.
 const posDec = (raw) => {
   const s = String(raw).trim();
-  const n = Number(s);
-  if (!Number.isFinite(n) || n <= 0) return null;
+  // Plain decimal only. A number <input> also accepts "1e5", ".5", "1000." — all of
+  // which would reach the ledger as a malformed Daml Decimal; reject them here.
+  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  if (!(Number(s) > 0)) return null;
   if (/\.\d{11,}/.test(s)) return null; // more precision than Daml Decimal holds
   return s.includes('.') ? s : s + '.0';
 };
