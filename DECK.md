@@ -69,8 +69,11 @@ by the protocol and a regulator-observable audit trail. Maps to the track's
 - Deployed on Canton Devnet.
 
 **9 · Honest scope / roadmap**
-Buyer-attested quote set; single-round, no partial fills; simple Holding token
-today → CIP-0056 token standard next; MPC to hide bids from the settler too.
+Shipped: two settlement modes (competitive Vickrey + direct bilateral OTC);
+one-quote-per-dealer enforced on-ledger. Ahead: partial fills / multi-round; a
+CIP-0056 token standard for the legs (wallet interop, real DvP); and — to force the
+true second price even against a self-interested buyer — a trusted auctioneer or
+MPC (the latter would re-introduce exactly the cryptography Canton lets us skip).
 
 **10 · Close**
 Bisik. The confidential OTC desk that finally didn't need a cryptography stack —

@@ -182,5 +182,11 @@ UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
 - Multi-instrument / multi-round RFQ; partial fills.
 - WebSocket update stream instead of polling.
 - MPC / trusted auctioneer so even the buyer can't see losing bids and the true
-  second price is forced.
-- Per-dealer one-quote enforcement if desired.
+  second price is forced (MPC would re-add the cryptography Canton lets us skip).
+
+**Delivered since this review:**
+- Direct bilateral OTC as a second settlement mode alongside Vickrey — the buyer's
+  "settle one quote at its ask" is now a deliberate feature, not just tolerated scope.
+- Per-dealer one-quote enforcement — `Award` rejects a quote set that repeats a
+  dealer (`testDuplicateDealerRejected`).
+- Live dashboard KPI tiles; functional in-app sidebar nav; Playwright video recorder.

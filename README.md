@@ -180,12 +180,13 @@ it leaves to the trusted auctioneer:
   (DvP) or not at all; the escrowed asset can't be pulled back unilaterally by the
   dealer; a quote can only settle the RFQ it was made against; the asset/cash
   issuer is checked against the RFQ's expected issuers.
-- **Left to the buyer (auctioneer):** which quotes to include in `Award`, and thus
-  the exact clearing price. A malicious buyer could omit quotes or settle a single
-  quote at that dealer's own ask (first price) rather than the Vickrey second price
-  — they can only ever *overpay* a dealer, never underpay below the ask. Forcing
-  the true second price / full-set inclusion needs a trusted third-party auctioneer
-  or MPC (so even the buyer can't see losing bids) — the stated next step.
+- **Two settlement modes, by design:** competitive `Award` (Vickrey second price)
+  and direct bilateral OTC (settle one dealer at its own ask). The buyer chooses the
+  mechanism; either way it can only ever *overpay* a dealer, never underpay below the
+  ask, and a dealer may hold only one quote in an auction (enforced on-ledger in
+  `Award`). Removing the buyer's discretion entirely — forcing the *true* second
+  price with full-set inclusion — still needs a trusted auctioneer or MPC; that is
+  future work (and MPC would re-introduce exactly the cryptography Canton lets us skip).
 - Simple self-contained `Holding` token with issuer binding, not CIP-0056 — the
   token standard is the next step.
 - Single-round sealed bids; no partial fills; one instrument per RFQ.

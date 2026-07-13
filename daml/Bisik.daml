@@ -125,6 +125,11 @@ template RFQ
            -- Bind by the RFQ's own id: a quote settles this RFQ or nothing.
            assertMsg "quote belongs to a different RFQ" (q.rfqId == Some self)
            pure (cid, q)
+         -- One quote per dealer in a single auction: a dealer that happens to hold
+         -- surplus assets can't stuff the book with several of its own bids.
+         let dealers = map (\(_, q) -> q.dealer) quotes
+         assertMsg "a dealer may only have one quote in the auction"
+           (length (dedup dealers) == length dealers)
          -- Secondary sort on dealer makes the winner deterministic on a price
          -- tie, independent of the order the buyer listed the quotes in.
          let sorted = sortOn (\(_, q) -> (q.price, q.dealer)) quotes

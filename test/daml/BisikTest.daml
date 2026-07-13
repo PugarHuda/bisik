@@ -161,6 +161,23 @@ testDuplicateQuoteRejected = do
   qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
   submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [qA, qA]; cashCid = cash
 
+-- A dealer with surplus assets cannot stuff the auction with two of its own
+-- quotes: Award rejects a quote set that repeats a dealer.
+testDuplicateDealerRejected : Script ()
+testDuplicateDealerRejected = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  cash <- mintCash e 5000000.0
+  bond1 <- mintBond e dealerA
+  bond2 <- mintBond e dealerA -- dealer holds a surplus bond
+  rfq <- openRfq e [dealerA]
+  q1 <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bond1
+  q2 <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4200000.0; assetCid = bond2
+  submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [q1, q2]; cashCid = cash
+  -- but the buyer can still settle ONE of them (q2's bond stays locked in escrow)
+  submit e.buyer do exerciseCmd rfq Award with quoteCids = [q1]; cashCid = cash
+  ownedBy dealerA <$> query @Holding dealerA >>= \h -> h === [("USDC", 4210000.0)]
+
 -- A dealer cannot pull the escrowed asset back out on their own while the quote
 -- is live (that would enable double-selling and poison the buyer's Award).
 -- Releasing the escrow needs buyer authority too, present only inside Quote choices.
