@@ -43,24 +43,26 @@ so it matches whatever is on-ledger at record time.
 [Dealer B: type 4250000, click "Whisper sealed quote".]
 > Dealer B quotes too — four point two five — and Dealer A's column doesn't move either.
 
-## 1:25 – 2:05 · Fair settlement
-[Buyer column now shows both quotes.]
-> The buyer sees the two sealed asks. The cheapest wins — but is paid the *second*
-> price. That's a Vickrey auction: it lets dealers quote their honest price without
-> shading, and the Award choice computes the clearing on-ledger.
+## 1:25 – 2:10 · Two ways to settle
+[Buyer column now shows both quotes, each with an "Accept · direct OTC" button.]
+> The buyer sees the two sealed asks — and can settle two ways. One: hit a single
+> dealer directly, at its own ask. That's classic bilateral OTC, one click.
+[Point at an "Accept · direct OTC" button — don't click it yet.]
+> Or two — the competitive route: the cheapest ask wins, but is paid the *second*
+> price. That's a Vickrey auction — dealers quote their honest price without shading,
+> and the Award choice computes the clearing on-ledger.
 
 [Click "Award — pay 2nd price (Vickrey)".]
-> One transaction settles it: cash to the winning dealer, the bond to the buyer —
-> atomic delivery-versus-payment. Either both legs happen, or neither does.
+> Either way it's one atomic transaction: cash to the winning dealer, the bond to the
+> buyer — delivery-versus-payment. Both legs happen, or neither does.
 
 [Balances update; point at the regulator line.]
 > The winner is paid the second price, the losing bid's collateral is returned, and
-> that losing quote is archived — never revealed, to the rival or to anyone. And the
-> regulator? It sees exactly one thing: the executed trade at its clearing price.
-> Nothing about the losing bid, nothing about the RFQ. Confidential pre-trade,
-> auditable post-trade.
+> that losing quote is archived — never revealed to anyone. And the regulator sees
+> exactly one thing: the executed trade at its clearing price. Nothing about the
+> losing bid, nothing about the RFQ. Confidential pre-trade, auditable post-trade.
 
-## 2:05 – 2:40 · Why Canton
+## 2:10 – 2:40 · Why Canton
 [Talking head, or the "four chains before" slide.]
 > Here's the part I'm proud of. I built this exact desk four times before this — on
 > iExec with trusted hardware, on Stellar with two zero-knowledge circuits, on Sui
@@ -85,6 +87,8 @@ so it matches whatever is on-ledger at record time.
 - [ ] RFQ creation visible
 - [ ] Dealer A quote → Dealer B column demonstrably unchanged (hold ~3s)
 - [ ] Dealer B quote submitted
+- [ ] Both settlement modes named — point at an "Accept · direct OTC" button (don't
+      click), then demo the Vickrey Award (competitive, 2nd price)
 - [ ] Award → balances move, winner paid the 2nd price (4.25M)
 - [ ] Regulator line shows only the settled trade
 - [ ] The **hosted Devnet desk** (bisik-eight.vercel.app) on screen for the close —
