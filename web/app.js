@@ -173,7 +173,11 @@ function renderBuyer(mine) {
       <div class="card ${c.cid === winCid ? 'win' : ''}">
         <div class="row"><span>${dealerLabel(c.arg.dealer)}</span><span class="price">${fmt(c.arg.price)} ${esc(c.arg.payInstrument)}</span></div>
         <div class="sub">${esc(c.arg.instrument)} · ${fmt(c.arg.quantity)}${c.cid === winCid ? ' · Vickrey winner, pays 2nd price ' + fmt(clearing) : ''}</div>
-        ${cashFor ? `<button class="ghost accept" style="margin-top:8px" data-accept="${c.cid}" data-tpl="${esc(c.tpl)}" data-cash="${cashFor.cid}" data-price="${esc(c.arg.price)}">Accept · direct OTC (pay ask ${fmt(c.arg.price)})</button>` : ''}
+        ${cashFor ? `<button class="ghost accept" style="margin-top:8px" data-accept="${c.cid}" data-tpl="${esc(c.tpl)}" data-cash="${cashFor.cid}" data-price="${esc(c.arg.price)}">Accept · direct OTC (pay ask ${fmt(c.arg.price)})</button>
+        <div class="form" style="margin-top:6px">
+          <label>Partial fill <input type="number" id="fill-${c.cid}" value="${esc(c.arg.quantity)}" min="0" max="${esc(c.arg.quantity)}" /></label>
+          <button class="ghost" data-partial="${c.cid}" data-tpl="${esc(c.tpl)}" data-cash="${cashFor.cid}">Fill partial (prorated)</button>
+        </div>` : ''}
       </div>`;
     }).join('');
 
@@ -322,6 +326,22 @@ async function acceptQuote(quoteCid, tpl, cashCid, price, btn) {
   });
 }
 
+// Partial bilateral fill: settle `fill` units (<= the quote's size) of one dealer
+// at its prorated ask, via the Quote's AcceptPartial choice (atomic DvP). The
+// unfilled remainder returns to the dealer.
+async function partialFill(quoteCid, tpl, cashCid, fillRaw, btn) {
+  if (READONLY) return toast(RO_MSG);
+  const fill = posDec(fillRaw);
+  if (!fill) return toast('fill quantity must be a positive number', true);
+  await guarded(btn, async () => {
+    try {
+      await submit(P.buyer, { ExerciseCommand: { templateId: tpl, contractId: quoteCid,
+        choice: 'AcceptPartial', choiceArgument: { cashCid, fillQuantity: fill } } });
+      toast('Partial fill settled — prorated atomic DvP'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
 async function award() {
   if (READONLY) return toast(RO_MSG);
   if (!awardable) return;
@@ -348,6 +368,12 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-accept]');
   if (!b) return;
   acceptQuote(b.dataset.accept, b.dataset.tpl, b.dataset.cash, b.dataset.price, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-partial]');
+  if (!b) return;
+  const fill = document.getElementById('fill-' + b.dataset.partial)?.value;
+  partialFill(b.dataset.partial, b.dataset.tpl, b.dataset.cash, fill, b);
 });
 // Sidebar in-desk nav: move the active highlight to the clicked section link.
 // (The browser handles the anchor scroll; the external links carry no "#".)

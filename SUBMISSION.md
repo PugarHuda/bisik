@@ -30,7 +30,8 @@ no clean audit trail. $30B+/month still trades this way.
 - **Confidential RFQ desk in Daml** — RFQ → sealed Quote → atomic DvP →
   regulator-observable TradeReport. **Two settlement modes on the same sealed
   rails:** competitive reverse-Vickrey Award (cheapest wins, paid the 2nd price)
-  *and* direct bilateral OTC (buyer hits one dealer at its firm ask). Escrow-backed
+  *and* direct bilateral OTC (buyer hits one dealer at its firm ask), with
+  **partial fills** (settle part of a lot at the prorated ask). Escrow-backed
   (dealer can't pull collateral mid-auction), issuer-bound, RFQ-bound quotes,
   time-boxed RFQs.
 - **Web desk** — three party views of one ledger over the JSON Ledger API; watch a
@@ -39,7 +40,7 @@ no clean audit trail. $30B+/month still trades this way.
   privacy itself* (`party_view(dealerA)` returns only its own quote).
 - **Autonomous market-maker agent** — a software agent that watches for RFQs it's
   invited to and auto-quotes, blind to its rivals.
-- **12 behavioural tests (+ seed scripts, 16 total), CI, deployed live on Canton Devnet.**
+- **13 behavioural tests (+ seed scripts, 17 total), CI, deployed live on Canton Devnet.**
 
 ## Why Canton (the differentiator)
 We built this exact product four times before — iExec (TEE), Stellar (ZK circuits),
@@ -49,8 +50,8 @@ ledger's data model. This is the case *for* Canton, made by someone who tried th
 alternatives.
 
 ## How it maps to the judging criteria
-- **Technical execution** — clean two-package Daml; 12 behavioural tests (privacy, Vickrey 1/2/3,
-  escrow guard, issuer binding, cross-RFQ, deadline, one-quote-per-dealer); CI; deployed + verified on Devnet.
+- **Technical execution** — clean two-package Daml; 13 behavioural tests (privacy, Vickrey 1/2/3,
+  escrow guard, issuer binding, cross-RFQ, deadline, one-quote-per-dealer, partial fill); CI; deployed + verified on Devnet.
 - **Originality** — an agent that verifies the ledger's privacy for itself; a desk
   built five times that finally needed no cryptography stack.
 - **UX** — a three-column desk that *shows* the privacy (rival column stays blank).
@@ -84,7 +85,7 @@ contracts are running on Devnet with real sub-transaction privacy.
 
 **2 · Full interactive (local, one command).**
 ```bash
-daml build --all && cd test && daml test   # 16 scripts green (incl. privacy + Vickrey + a settled trade)
+daml build --all && cd test && daml test   # 17 scripts green (incl. privacy + Vickrey + a settled trade)
 npm run demo                                # sandbox → seed → desk at http://localhost:8080
 #   → open http://localhost:8080, create an RFQ, quote as both dealers, Award (Vickrey)
 npm run agent:demo                          # the autonomous market-maker quotes an RFQ
@@ -103,4 +104,4 @@ pre-trade. Full Devnet deploy steps in `README.md`; the multi-angle QA record in
 - [ ] 3-minute video pitch + demo — **record with your own voice** (Encode rule);
       read-aloud script in `DEMO-VO.md`, storyboard in `DEMO-SCRIPT.md`, captures in `media/`
 
-Deadline: **Monday 13 July 2026, 12:59 BST = 11:59 UTC = 18:59 WIB** (no extensions).
+Deadline: **Sunday 19 July 2026, midnight in your local timezone (WIB)** — extended by Encode Club.

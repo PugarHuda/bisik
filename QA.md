@@ -189,4 +189,7 @@ UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
   "settle one quote at its ask" is now a deliberate feature, not just tolerated scope.
 - Per-dealer one-quote enforcement — `Award` rejects a quote set that repeats a
   dealer (`testDuplicateDealerRejected`).
+- Partial fills — `Quote.AcceptPartial` settles part of a lot at the prorated ask
+  via `EscrowedHolding.DeliverSplit` (remainder returns to the dealer);
+  `testPartialFill` checks the exact money math.
 - Live dashboard KPI tiles; functional in-app sidebar nav; Playwright video recorder.

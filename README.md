@@ -189,7 +189,9 @@ it leaves to the trusted auctioneer:
   future work (and MPC would re-introduce exactly the cryptography Canton lets us skip).
 - Simple self-contained `Holding` token with issuer binding, not CIP-0056 — the
   token standard is the next step.
-- Single-round sealed bids; no partial fills; one instrument per RFQ.
+- Single-round sealed bids; one instrument per RFQ. **Partial fills are supported**
+  (`AcceptPartial` settles part of a lot at the prorated ask); multi-round bidding
+  is via dealer withdraw + re-quote; multi-instrument baskets are future work.
 
 See `QA.md` for the full multi-angle review (bugs fixed, accepted scope, opportunities).
 
