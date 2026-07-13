@@ -67,6 +67,18 @@ template EscrowedHolding
       controller dealer, buyer
       do create Holding with issuer; owner = recipient; instrument; amount
 
+    -- Partial delivery: `toBuyer` units of the escrow go to the buyer, the rest
+    -- back to the dealer. Same dual authority as DeliverTo (present inside a Quote
+    -- choice). Used by AcceptPartial for a partial fill.
+    choice DeliverSplit : (ContractId Holding, Optional (ContractId Holding))
+      with toBuyer : Decimal
+      controller dealer, buyer
+      do assertMsg "split must be within the escrow" (toBuyer > 0.0 && toBuyer <= amount)
+         b <- create Holding with issuer; owner = buyer; instrument; amount = toBuyer
+         rest <- if toBuyer == amount then pure None
+                 else Some <$> create Holding with issuer; owner = dealer; instrument; amount = amount - toBuyer
+         pure (b, rest)
+
 -- Buyer requests quotes from a chosen dealer panel. The market never sees it;
 -- only invited dealers do. The RFQ carries no price information.
 template RFQ
@@ -185,6 +197,35 @@ template Quote
          _ <- exercise escrowCid DeliverTo with recipient = buyer
          create TradeReport with
            buyer; dealer; regulator; instrument; quantity; clearingPrice
+
+    -- Partial bilateral fill: the buyer takes `fillQuantity` (≤ the quote's size)
+    -- from this one dealer at its ask, prorated, in one atomic DvP. The unfilled
+    -- remainder of the escrow returns to the dealer; the quote is consumed. This is
+    -- the direct-OTC path with partial fills — additive; Award/SettleQuote (full
+    -- fill) are untouched. `fillPrice` prorates the ask by the fill fraction.
+    choice AcceptPartial : ContractId TradeReport
+      with
+        cashCid : ContractId Holding
+        fillQuantity : Decimal
+      controller buyer
+      do assertMsg "fill must be positive" (fillQuantity > 0.0)
+         assertMsg "fill exceeds the quote quantity" (fillQuantity <= quantity)
+         let fillPrice = price * fillQuantity / quantity
+         cash <- fetch cashCid
+         assertMsg "wrong cash instrument" (cash.instrument == payInstrument)
+         assertMsg "cash owned by buyer" (cash.owner == buyer)
+         assertMsg "cash from unexpected issuer" (optional True (== cash.issuer) payIssuer)
+         assertMsg "insufficient cash" (cash.amount >= fillPrice)
+         payCid <-
+           if cash.amount == fillPrice
+             then pure cashCid
+             else do
+               (part, _rest) <- exercise cashCid Split with splitAmount = fillPrice
+               pure part
+         _ <- exercise payCid Transfer with newOwner = dealer
+         _ <- exercise escrowCid DeliverSplit with toBuyer = fillQuantity
+         create TradeReport with
+           buyer; dealer; regulator; instrument; quantity = fillQuantity; clearingPrice = fillPrice
 
     -- Buyer declines (losing quotes in Award); escrow returns to the dealer.
     choice RejectQuote : ()

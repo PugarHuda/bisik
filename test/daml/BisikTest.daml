@@ -161,6 +161,23 @@ testDuplicateQuoteRejected = do
   qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
   submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [qA, qA]; cashCid = cash
 
+-- Partial bilateral fill: buyer takes 400 of a 1000-lot quote at the prorated ask.
+-- 4,250,000 * 400/1000 = 1,700,000 (exact). Dealer keeps the unfilled 600.
+testPartialFill : Script ()
+testPartialFill = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  cash <- mintCash e 5000000.0
+  bondA <- mintBond e dealerA
+  rfq <- openRfq e [dealerA]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4250000.0; assetCid = bondA
+  submitMustFail e.buyer do exerciseCmd qA AcceptPartial with cashCid = cash; fillQuantity = 1500.0 -- over the lot
+  submit e.buyer do exerciseCmd qA AcceptPartial with cashCid = cash; fillQuantity = 400.0
+  ownedBy e.buyer <$> query @Holding e.buyer >>= \h -> h === [("TBOND30", 400.0), ("USDC", 3300000.0)]
+  ownedBy dealerA <$> query @Holding dealerA >>= \h -> h === [("TBOND30", 600.0), ("USDC", 1700000.0)]
+  reports <- map snd <$> query @TradeReport e.regulator
+  [(r.instrument, r.quantity, r.clearingPrice) | r <- reports] === [("TBOND30", 400.0, 1700000.0)]
+
 -- A dealer with surplus assets cannot stuff the auction with two of its own
 -- quotes: Award rejects a quote set that repeats a dealer.
 testDuplicateDealerRejected : Script ()
