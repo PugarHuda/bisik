@@ -27,9 +27,12 @@ Today's fix is OTC desks and chat rooms that require trusting a middleman and le
 no clean audit trail. $30B+/month still trades this way.
 
 ## What we built
-- **Confidential RFQ desk in Daml** — RFQ → sealed Quote → reverse-Vickrey Award →
-  atomic DvP → regulator-observable TradeReport. Escrow-backed (dealer can't pull
-  collateral mid-auction), issuer-bound, RFQ-bound quotes, time-boxed RFQs.
+- **Confidential RFQ desk in Daml** — RFQ → sealed Quote → atomic DvP →
+  regulator-observable TradeReport. **Two settlement modes on the same sealed
+  rails:** competitive reverse-Vickrey Award (cheapest wins, paid the 2nd price)
+  *and* direct bilateral OTC (buyer hits one dealer at its firm ask). Escrow-backed
+  (dealer can't pull collateral mid-auction), issuer-bound, RFQ-bound quotes,
+  time-boxed RFQs.
 - **Web desk** — three party views of one ledger over the JSON Ledger API; watch a
   dealer quote and the rival's column stay empty.
 - **MCP server** — the desk as AI-native tools; an agent can *verify Canton's
