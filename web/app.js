@@ -163,11 +163,19 @@ function renderBuyer(mine) {
       Number(a.arg.price) - Number(b.arg.price) || a.arg.dealer.localeCompare(b.arg.dealer));
     const winCid = sorted[0].cid;
     const clearing = Number((sorted[1] ?? sorted[0]).arg.price);
-    box.innerHTML = sorted.map((c) => `
+    // Per-quote "Accept" = direct bilateral OTC: settle THIS dealer at its own
+    // ask (SettleQuote at clearingPrice = price), instead of the competitive
+    // Vickrey Award (2nd price) below. Same atomic DvP, same sealed privacy.
+    box.innerHTML = sorted.map((c) => {
+      const cashFor = mine.find((h) => is(h, 'Holding') && h.arg.owner === P.buyer
+        && h.arg.instrument === c.arg.payInstrument && Number(h.arg.amount) >= Number(c.arg.price));
+      return `
       <div class="card ${c.cid === winCid ? 'win' : ''}">
         <div class="row"><span>${dealerLabel(c.arg.dealer)}</span><span class="price">${fmt(c.arg.price)} ${esc(c.arg.payInstrument)}</span></div>
-        <div class="sub">${esc(c.arg.instrument)} · ${fmt(c.arg.quantity)}${c.cid === winCid ? ' · winner, pays 2nd price ' + fmt(clearing) : ''}</div>
-      </div>`).join('');
+        <div class="sub">${esc(c.arg.instrument)} · ${fmt(c.arg.quantity)}${c.cid === winCid ? ' · Vickrey winner, pays 2nd price ' + fmt(clearing) : ''}</div>
+        ${cashFor ? `<button class="ghost accept" style="margin-top:8px" data-accept="${c.cid}" data-tpl="${esc(c.tpl)}" data-cash="${cashFor.cid}" data-price="${esc(c.arg.price)}">Accept · direct OTC (pay ask ${fmt(c.arg.price)})</button>` : ''}
+      </div>`;
+    }).join('');
 
     const cash = mine.find((c) => is(c, 'Holding') && c.arg.owner === P.buyer
       && c.arg.instrument === rfq.arg.payInstrument && Number(c.arg.amount) >= clearing);
@@ -299,6 +307,21 @@ async function submitQuote(role, rfqCid, bondCid, tpl, priceRaw, btn) {
   });
 }
 
+// Direct bilateral OTC: buyer hits one dealer's firm quote at its ask price.
+// Reuses the Quote's SettleQuote choice (atomic DvP) with clearingPrice = ask —
+// no auction, no second-price. The other dealers' quotes stay live (a dealer can
+// still WithdrawQuote its escrow), exactly like hitting one counterparty on a desk.
+async function acceptQuote(quoteCid, tpl, cashCid, price, btn) {
+  if (READONLY) return toast(RO_MSG);
+  await guarded(btn, async () => {
+    try {
+      await submit(P.buyer, { ExerciseCommand: { templateId: tpl, contractId: quoteCid,
+        choice: 'SettleQuote', choiceArgument: { cashCid, clearingPrice: price } } });
+      toast('Direct OTC settled at ask — atomic DvP'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
 async function award() {
   if (READONLY) return toast(RO_MSG);
   if (!awardable) return;
@@ -320,6 +343,11 @@ document.addEventListener('click', (e) => {
   const { quote: role, rfq: rfqCid, bond: bondCid, tpl } = b.dataset;
   const price = document.getElementById(`ask-${role}-${rfqCid}`).value;
   submitQuote(role, rfqCid, bondCid, tpl, price, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-accept]');
+  if (!b) return;
+  acceptQuote(b.dataset.accept, b.dataset.tpl, b.dataset.cash, b.dataset.price, b);
 });
 
 (async function main() {
