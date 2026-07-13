@@ -349,6 +349,14 @@ document.addEventListener('click', (e) => {
   if (!b) return;
   acceptQuote(b.dataset.accept, b.dataset.tpl, b.dataset.cash, b.dataset.price, b);
 });
+// Sidebar in-desk nav: move the active highlight to the clicked section link.
+// (The browser handles the anchor scroll; the external links carry no "#".)
+document.querySelector('.side-nav')?.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  document.querySelectorAll('.side-nav a').forEach((x) => x.classList.remove('on'));
+  a.classList.add('on');
+});
 
 (async function main() {
   try {

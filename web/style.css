@@ -118,6 +118,12 @@ body.app { display: grid; grid-template-columns: 236px 1fr; min-height: 100vh; }
 .side-nav a .ic { width: 16px; text-align: center; opacity: .8; font-size: 13px; }
 .side-nav a:hover { background: var(--panel-2); color: var(--ink); }
 .side-nav a.on { background: var(--panel-2); color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); }
+.side-sep { height: 1px; background: var(--line); margin: 8px 6px; }
+/* In-desk nav: smooth-scroll to a section, leaving a little breathing room at the
+   top so it doesn't butt against the topbar. (reduced-motion is honoured by the
+   global * { scroll-behavior: auto } rule above.) */
+html { scroll-behavior: smooth; }
+#top, #nav-rfq, #nav-settle, #nav-audit { scroll-margin-top: 76px; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 .side .ledger {
   margin: 0; font-size: 11px; color: var(--muted);

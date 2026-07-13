@@ -12,10 +12,12 @@
   <a class="side-brand" href="/">bisik<span class="dot">.</span></a>
   <div class="side-net">CANTON · DEVNET<br><span>JSON Ledger API</span></div>
   <nav class="side-nav">
-    <a class="on" href="app.html"><span class="ic" aria-hidden="true">▤</span> The desk</a>
-    <a href="/#how"><span class="ic" aria-hidden="true">◇</span> How it works</a>
-    <a href="/#model"><span class="ic" aria-hidden="true">◆</span> The model</a>
-    <a href="/#lineage"><span class="ic" aria-hidden="true">⑆</span> Why Canton</a>
+    <a class="on" href="#top"><span class="ic" aria-hidden="true">▤</span> The desk</a>
+    <a href="#nav-rfq"><span class="ic" aria-hidden="true">⇄</span> Create RFQ</a>
+    <a href="#nav-settle"><span class="ic" aria-hidden="true">◆</span> Settlement</a>
+    <a href="#nav-audit"><span class="ic" aria-hidden="true">✓</span> Audit trail</a>
+    <div class="side-sep" aria-hidden="true"></div>
+    <a href="/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">↗</span> Landing page</a>
     <a href="https://github.com/PugarHuda/bisik" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">↗</span> GitHub</a>
     <a href="https://github.com/PugarHuda/bisik#readme" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">≡</span> Docs</a>
   </nav>
@@ -38,12 +40,12 @@
     <div class="stat"><span class="k" id="stat-settled">—</span><span class="l">Settled trades</span></div>
   </div>
 
-  <main class="desk">
+  <main class="desk" id="top">
     <!-- Buyer -->
     <section class="panel" data-role="buyer">
       <div class="phead"><span class="who">Buyer</span><span class="pid" id="pid-buyer">—</span></div>
       <div class="pbody">
-        <div class="block">
+        <div class="block" id="nav-rfq">
           <h3>Open an RFQ</h3>
           <div class="form">
             <label>Instrument <input id="rfq-instrument" value="TBOND30" /></label>
@@ -52,7 +54,7 @@
             <button id="btn-create-rfq">Send to dealer panel</button>
           </div>
         </div>
-        <div class="block">
+        <div class="block" id="nav-settle">
           <h3>Quotes received <span class="hint">(sealed to you)</span></h3>
           <div id="buyer-quotes" class="list"><div class="empty">No quotes yet.</div></div>
           <button id="btn-award" class="award" disabled>Award — pay 2nd price (Vickrey)</button>
@@ -77,7 +79,7 @@
     </section>
   </main>
 
-  <footer class="foot">
+  <footer class="foot" id="nav-audit">
     <div class="privacy-note" id="privacy-note">
       Each column is that party's own view of the same Canton ledger. Dealer B never
       receives Dealer A's quote — it is not hidden in the UI, it is never sent to their node.
