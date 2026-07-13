@@ -214,7 +214,7 @@ function renderDealer(role, mine) {
 }
 
 async function renderRegulator() {
-  if (!P.regulator) return;
+  if (!P.regulator) return 0;
   const mine = await acs(P.regulator);
   const reports = mine.filter((c) => is(c, 'TradeReport'));
   const el = document.getElementById('regulator-view');
@@ -223,6 +223,17 @@ async function renderRegulator() {
       reports.map((r) => `${esc(r.arg.instrument)} ${fmt(r.arg.quantity)} @ ${fmt(r.arg.clearingPrice)}`).join(', ') +
       ' — and nothing about the losing quotes or the RFQ.'
     : 'Regulator view: no settled trades yet (and zero visibility into live RFQs or quotes).';
+  return reports.length;
+}
+
+// Glanceable KPI row. All values come from the buyer/regulator ACS the refresh
+// loop already fetched; only the offset is a fresh (cheap) read for a liveness pulse.
+function setStats({ offset, rfqs, quotes, settled }) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.textContent = v; };
+  set('stat-offset', offset != null ? Number(offset).toLocaleString() : undefined);
+  set('stat-rfqs', rfqs);
+  set('stat-quotes', quotes);
+  set('stat-settled', settled);
 }
 
 // ---- refresh loop ----
@@ -233,7 +244,9 @@ async function refresh() {
     const [b, a, d] = await Promise.all([acs(P.buyer), acs(P.dealerA), acs(P.dealerB)]);
     if (!PKG) { const any = [...b, ...a, ...d].find((c) => typeof c.tpl === 'string' && c.tpl.includes(':Bisik:')); if (any) PKG = any.tpl.split(':')[0]; }
     renderBuyer(b); renderDealer('dealerA', a); renderDealer('dealerB', d);
-    await renderRegulator();
+    const settled = await renderRegulator();
+    setStats({ offset: await ledgerEnd(), rfqs: b.filter((c) => is(c, 'RFQ')).length,
+      quotes: b.filter((c) => is(c, 'Quote')).length, settled });
     setLedger('ok', 'ledger live · pkg ' + (PKG ? PKG.slice(0, 8) : '—'));
   } catch (e) {
     setLedger('err', 'ledger error: ' + e.message);
