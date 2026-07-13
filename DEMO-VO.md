@@ -5,8 +5,12 @@ voice). Read the **plain lines**; the `[bracketed]` lines are what to do on scre
 not spoken. Pace is ~150 words/min → the whole thing lands right around 3:00.
 
 **Before you hit record:** `npm run demo`, wait for `http://localhost:8080`, open it,
-click **Open the desk**. Keep the three-column desk in one window. (Optional second
-tab: the live site **bisik-eight.vercel.app** to show it's deployed.)
+click **Open the desk** — this is the interactive tab you drive the flow in. Also open
+a **second tab on the live site https://bisik-eight.vercel.app** and leave it on the
+desk (that tab is read-only over real Devnet — you switch to it for the close). Its
+current live state: one settled **GILT10** trade the regulator can see, plus an open
+**TBOND30** RFQ with two sealed quotes — the narration below stays instrument-agnostic
+so it matches whatever is on-ledger at record time.
 
 ---
 
@@ -65,10 +69,15 @@ tab: the live site **bisik-eight.vercel.app** to show it's deployed.)
 > that machinery is gone. "Dealer B can't see Dealer A's quote" is one line —
 > signatory and observer. The privacy I needed *is* the ledger's data model.
 
-## 2:40 – 3:00 · Close
-[Show the live site / the deployed Devnet contracts / the repo.]
-> It's live on Canton Devnet — real Daml contracts, on-ledger, at bisik-eight-dot-
-> vercel-dot-app. Bisik: you whisper quotes, and the market hears nothing. Thanks.
+## 2:40 – 3:00 · Close — live on Devnet
+[Switch to the second tab: the hosted desk at bisik-eight.vercel.app.]
+> And this isn't a local sandbox. This is the same desk, running read-only over the
+> shared Canton Devnet validator — live contracts, on-ledger right now.
+[Point at the regulator line, then each dealer column, hold ~4s.]
+> The regulator sees exactly one settled trade and nothing else. Each dealer sees only
+> its own quote — neither receives the other's. That blindness isn't my UI; it's the
+> Devnet ledger itself. Real Daml contracts, deployed and verifiable.
+> Bisik: you whisper quotes, and the market hears nothing. Thanks.
 
 ---
 
@@ -78,5 +87,7 @@ tab: the live site **bisik-eight.vercel.app** to show it's deployed.)
 - [ ] Dealer B quote submitted
 - [ ] Award → balances move, winner paid the 2nd price (4.25M)
 - [ ] Regulator line shows only the settled trade
-- [ ] The live site / Devnet contracts on-ledger (proof it's deployed)
+- [ ] The **hosted Devnet desk** (bisik-eight.vercel.app) on screen for the close —
+      regulator column = only the settled trade, each dealer = only its own quote
+      (this is the "real transactions on Devnet" proof Encode asks for)
 - [ ] The "four chains before" line delivered to camera — this is the differentiator
