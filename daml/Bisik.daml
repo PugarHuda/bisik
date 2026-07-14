@@ -6,6 +6,27 @@ module Bisik where
 import DA.Foldable (forA_)
 import DA.List (dedup, head, sortOn, tail)
 
+-- CIP-0056-aligned token interface (directional). Lets generic tooling — a wallet,
+-- an explorer, a settlement engine — treat any position as a standard transferable
+-- token via its view + a Transfer choice, without knowing the concrete `Holding`
+-- template. The full standard (TransferInstruction / Allocation registries) is the
+-- stated next step; this is the interface it plugs into.
+data TokenView = TokenView with
+    issuer : Party
+    owner : Party
+    instrument : Text
+    amount : Decimal
+  deriving (Eq, Show)
+
+interface Token where
+  viewtype TokenView
+  transferImpl : Party -> Update (ContractId Token)
+
+  choice TransferToken : ContractId Token
+    with newOwner : Party
+    controller (view this).owner
+    do transferImpl this newOwner
+
 -- A fungible position in one instrument. Used for both legs (asset and cash).
 template Holding
   with
@@ -17,6 +38,12 @@ template Holding
     signatory issuer
     observer owner
     ensure amount > 0.0
+
+    -- Standard-token view + transfer, so generic tooling can handle a Holding
+    -- through the CIP-0056-aligned `Token` interface (see above).
+    interface instance Token for Holding where
+      view = TokenView with issuer; owner; instrument; amount
+      transferImpl newOwner = toInterfaceContractId @Token <$> create this with owner = newOwner
 
     choice Transfer : ContractId Holding
       with newOwner : Party

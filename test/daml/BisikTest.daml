@@ -161,6 +161,18 @@ testDuplicateQuoteRejected = do
   qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
   submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [qA, qA]; cashCid = cash
 
+-- A Holding is transferable through the standard CIP-0056-aligned Token interface,
+-- not just its concrete Transfer choice — generic tooling can move it blind to type.
+testTokenInterface : Script ()
+testTokenInterface = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  hcid <- mintBond e dealerA
+  let tcid = toInterfaceContractId @Token hcid
+  _ <- submit dealerA do exerciseCmd tcid TransferToken with newOwner = e.buyer
+  ownedBy e.buyer <$> query @Holding e.buyer >>= \h -> h === [("TBOND30", 1000.0)]
+  ownedBy dealerA <$> query @Holding dealerA >>= \h -> h === []
+
 -- Partial bilateral fill: buyer takes 400 of a 1000-lot quote at the prorated ask.
 -- 4,250,000 * 400/1000 = 1,700,000 (exact). Dealer keeps the unfilled 600.
 testPartialFill : Script ()

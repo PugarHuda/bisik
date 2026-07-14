@@ -2,6 +2,11 @@ sdk-version: 3.4.11
 name: bisik
 version: 0.4.0
 source: daml
+# The CIP-0056-aligned Token interface is implemented in the same package as its
+# Holding template; Daml's smart-contract-upgrade check flags in-package interface
+# instances by default. This ships as a fresh version, so allow it.
+build-options:
+  - -Wno-upgrade-interfaces
 dependencies:
   - daml-prim
   - daml-stdlib
