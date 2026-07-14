@@ -82,6 +82,28 @@ if (partiesFile) {
   try { PARTIES = JSON.parse(readFileSync(partiesFile, 'utf8')); } catch { PARTIES = {}; }
 }
 
+// ---- SSE push: notify the desk the moment the ledger offset moves, so it can
+// refresh on-demand instead of only polling on a timer. Local-only — a serverless
+// host can't hold the connection open, and the browser just keeps polling there. ----
+const sseClients = new Set();
+let lastOffset = -1, sseTimer = null;
+async function pollOffset() {
+  try {
+    const headers = {};
+    const t = await bearer();
+    if (t) headers.authorization = `Bearer ${t}`;
+    const r = await fetch(`${LEDGER}/v2/state/ledger-end`, { headers });
+    const j = JSON.parse(await r.text());
+    if (typeof j.offset === 'number' && j.offset !== lastOffset) {
+      lastOffset = j.offset;
+      for (const c of sseClients) c.write(`data: ${j.offset}\n\n`);
+    }
+  } catch {}
+}
+function ensureSsePolling() {
+  if (!sseTimer && sseClients.size) sseTimer = setInterval(pollOffset, 700);
+}
+
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const send = (res, status, body, type = 'application/json') => {
@@ -94,6 +116,18 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === '/api/config')
     return send(res, 200, JSON.stringify({ userId: USER_ID, parties: PARTIES }));
+
+  if (url.pathname === '/api/stream') {
+    res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+    res.write(': connected\n\n');
+    sseClients.add(res);
+    ensureSsePolling();
+    req.on('close', () => {
+      sseClients.delete(res);
+      if (!sseClients.size && sseTimer) { clearInterval(sseTimer); sseTimer = null; }
+    });
+    return;
+  }
 
   // Transparent proxy: /api/v2/... -> <LEDGER>/v2/... (adds Bearer token on DevNet).
   if (url.pathname.startsWith('/api/v2/')) {

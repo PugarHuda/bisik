@@ -394,6 +394,13 @@ document.querySelector('.side-nav')?.addEventListener('click', (e) => {
     if (!(await loadParties(cfg.parties))) { setLedger('err', 'demo parties not found — run seed'); return; }
     await refresh();
     setInterval(refresh, 1800);
+    // Near-instant updates when the local server offers an SSE push stream; a
+    // harmless no-op on hosts that don't (the timed poll above still runs).
+    try {
+      const es = new EventSource('/api/stream');
+      es.onmessage = () => refresh();
+      es.onerror = () => es.close();
+    } catch { /* no EventSource / no stream — polling covers it */ }
   } catch (e) {
     setLedger('err', 'startup failed: ' + (e?.message ?? e));
   }
