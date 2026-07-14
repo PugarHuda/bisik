@@ -123,18 +123,18 @@ cd web && LEDGER_ENV_FILE=../scripts/.env.devnet npm start
 
 **Live deployment facts**
 - Ledger API: `https://ledger-api.validator.devnet.sandbox.fivenorth.io`
-- Model package id (`bisik` v0.4.0): `bf5d9a45552353be29cf4180d9cc7465c5fd0f87822b016b9a0da53cba4948f6`
-- Parties (shared namespace `…::1220a14ca128…`): `bisik-v4-buyer`, `bisik-v4-dealerA`,
-  `bisik-v4-dealerB`, `bisik-v4-regulator`, `bisik-v4-cashissuer`, `bisik-v4-bondissuer`
+- Model package id (`bisik` v0.5.0): `5e85129395a60c395bc21f3a71279e73fa060d26a76299daa79a48a458da9702`
+- Parties (shared namespace `…::1220a14ca128…`): `bisik-v5-buyer`, `bisik-v5-dealerA`,
+  `bisik-v5-dealerB`, `bisik-v5-regulator`, `bisik-v5-cashissuer`, `bisik-v5-bondissuer`
 - On-ledger `verify` result — Dealer A and Dealer B each see **only their own**
   Quote; the Regulator sees nothing pre-trade. Privacy proven on Devnet, not sandbox.
 
 `verify` on Devnet prints:
 ```
-buyer      {"Holding":1,"RFQ":1,"EscrowedHolding":2,"Quote":2} quotes from: bisik-v4-dealerA,bisik-v4-dealerB
-dealerA    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v4-dealerA
-dealerB    {"RFQ":1,"EscrowedHolding":1,"Quote":1} quotes from: bisik-v4-dealerB
-regulator  {}
+buyer      {"Holding":2,"RFQ":1,"EscrowedHolding":2,"Quote":2,"TradeReport":1} quotes from: bisik-v5-dealerA,bisik-v5-dealerB
+dealerA    {"RFQ":1,"EscrowedHolding":1,"Quote":1,"Holding":1,"TradeReport":1} quotes from: bisik-v5-dealerA
+dealerB    {"RFQ":1,"EscrowedHolding":1,"Quote":1,"Holding":1} quotes from: bisik-v5-dealerB
+regulator  {"TradeReport":1}
 ```
 
 ## Agentic access (MCP) — Private DeFi × agentic commerce
