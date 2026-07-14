@@ -46,7 +46,7 @@ Why Vickrey? Dealers can quote their true reserve price without shading — the 
 Two packages, so the deployable model DAR carries no test/script code:
 
 ```
-daml/Bisik.daml           model — the whole product (bisik-0.4.0.dar → deploy this)
+daml/Bisik.daml           model — the whole product (bisik-0.5.0.dar → deploy this)
 test/daml/BisikTest.daml  end-to-end script + privacy assertions
 test/daml/Init.daml       on-ledger seed: parties + an open RFQ (LocalNet/Devnet demo)
 web/                      the desk UI: 3 party views + JSON Ledger API proxy (Node stdlib)
@@ -81,7 +81,7 @@ Or run the three pieces by hand:
 
 ```bash
 daml build --all
-daml sandbox --dar .daml/dist/bisik-0.4.0.dar --json-api-port 7575
+daml sandbox --dar .daml/dist/bisik-0.5.0.dar --json-api-port 7575
 daml script --dar test/.daml/dist/bisik-test-0.1.0.dar \
   --script-name Init:initialize --ledger-host localhost --ledger-port 6865
 cd web && npm start
@@ -96,7 +96,7 @@ settles atomically. Point the UI at Devnet instead by setting
 ## Run it
 
 ```bash
-daml build --all    # bisik-0.4.0.dar (model) + bisik-test-0.1.0.dar
+daml build --all    # bisik-0.5.0.dar (model) + bisik-test-0.1.0.dar
 cd test && daml test # testBisik: mint → RFQ → sealed quotes → Vickrey DvP
                      # + privacy assertions (dealer B cannot query dealer A's quote)
 ```
@@ -109,7 +109,7 @@ DAR, allocates + grants parties, and seeds a live RFQ with two sealed quotes.
 
 ```bash
 cp scripts/.env.devnet.example scripts/.env.devnet   # fill client secret (Encode #general)
-node scripts/devnet.mjs upload .daml/dist/bisik-0.4.0.dar
+node scripts/devnet.mjs upload .daml/dist/bisik-0.5.0.dar
 node scripts/devnet.mjs seed        # parties + holdings + RFQ + 2 sealed quotes
 node scripts/devnet.mjs verify      # prints per-party visibility (the privacy proof)
 # then serve the UI against Devnet — the server reads the gitignored env file, so

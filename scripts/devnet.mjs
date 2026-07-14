@@ -1,7 +1,7 @@
 // Bisik DevNet deploy/seed against the shared 5N hackathon validator.
 // Reads scripts/.env.devnet (gitignored). Node >= 20.
 //   node scripts/devnet.mjs probe
-//   node scripts/devnet.mjs upload .daml/dist/bisik-0.4.0.dar
+//   node scripts/devnet.mjs upload .daml/dist/bisik-0.5.0.dar
 //   node scripts/devnet.mjs allocate
 //   node scripts/devnet.mjs seed
 import { readFile, writeFile } from 'node:fs/promises';
@@ -91,7 +91,9 @@ async function probe() {
 
 async function upload(darPath) {
   const bytes = await readFile(join(ROOT, darPath));
-  const r = await api('/v2/packages', { method: 'POST', raw: bytes });
+  // retry: the shared validator returns 503 (gateway timeout) under load; the
+  // package upload + vetting can still need several tries to land a clean 200.
+  const r = await api('/v2/packages', { method: 'POST', raw: bytes, retry: true });
   console.log('upload:', r.status, JSON.stringify(r.data).slice(0, 200));
 }
 
@@ -99,8 +101,8 @@ const USER = '6';
 // v2 party set — isolates this deployment's (new package) contracts from any
 // earlier ones on the shared validator, so party queries return only our data.
 const HINTS = {
-  buyer: 'bisik-v4-buyer', dealerA: 'bisik-v4-dealerA', dealerB: 'bisik-v4-dealerB',
-  regulator: 'bisik-v4-regulator', cashIssuer: 'bisik-v4-cashissuer', bondIssuer: 'bisik-v4-bondissuer',
+  buyer: 'bisik-v5-buyer', dealerA: 'bisik-v5-dealerA', dealerB: 'bisik-v5-dealerB',
+  regulator: 'bisik-v5-regulator', cashIssuer: 'bisik-v5-cashissuer', bondIssuer: 'bisik-v5-bondissuer',
 };
 
 async function namespace() {
@@ -147,9 +149,9 @@ async function allocate() {
   console.log('wrote scripts/devnet.parties.json');
 }
 
-// Main package id of .daml/dist/bisik-0.4.0.dar. Regenerate after a model change
-// with: daml damlc inspect-dar --json .daml/dist/bisik-0.4.0.dar  (or set BISIK_PKG).
-const PKG = process.env.BISIK_PKG ?? 'bf5d9a45552353be29cf4180d9cc7465c5fd0f87822b016b9a0da53cba4948f6';
+// Main package id of .daml/dist/bisik-0.5.0.dar. Regenerate after a model change
+// with: daml damlc inspect-dar --json .daml/dist/bisik-0.5.0.dar  (or set BISIK_PKG).
+const PKG = process.env.BISIK_PKG ?? '5e85129395a60c395bc21f3a71279e73fa060d26a76299daa79a48a458da9702';
 let CID = 0;
 async function submit(actAs, command) {
   const commandId = `bisik-${Date.now()}-${CID++}`; // stable across retries → dedup on the ledger
@@ -292,7 +294,7 @@ const cmd = process.argv[2];
   ENV = await loadEnv();
   if (cmd === 'probe') await probe();
   else if (cmd === 'cleanup') await cleanup();
-  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.4.0.dar');
+  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.5.0.dar');
   else if (cmd === 'allocate-one') console.log(await allocateOne(process.argv[3] ?? 'bisik-probe-1'));
   else if (cmd === 'allocate') await allocate();
   else if (cmd === 'seed') await seed();

@@ -161,7 +161,7 @@ async function handle(name, args) {
   throw new Error('unknown tool: ' + name);
 }
 
-const server = new Server({ name: 'bisik', version: '0.4.0' }, { capabilities: { tools: {} } });
+const server = new Server({ name: 'bisik', version: '0.5.0' }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   try { return await handle(req.params.name, req.params.arguments); }
