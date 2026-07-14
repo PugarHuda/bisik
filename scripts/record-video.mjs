@@ -8,7 +8,7 @@
 // Output: media/bisik-demo-full.webm  (+ the flow is verified end-to-end)
 // Env:  SPEED=1.5  slow every hold down 1.5x (default 1). BISIK_URL to override.
 import { chromium } from 'playwright';
-import { mkdir, rename, readdir } from 'node:fs/promises';
+import { mkdir, rename, readdir, stat, unlink } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +38,13 @@ const unspot = (page) => page.evaluate(() => document.querySelectorAll('.__spot'
 
 (async () => {
   await mkdir(MEDIA, { recursive: true });
+  // Clear stray Playwright videos from earlier/failed runs so the rename below can't
+  // pick a half-written one (keep the two canonical webms).
+  for (const f of await readdir(MEDIA)) {
+    if (f.endsWith('.webm') && f !== 'bisik-demo-full.webm' && f !== 'bisik-demo-silent.webm') {
+      await unlink(join(MEDIA, f)).catch(() => {});
+    }
+  }
   const browser = await chromium.launch();
   const context = await browser.newContext({
     viewport: { width: W, height: H },
@@ -52,7 +59,9 @@ const unspot = (page) => page.evaluate(() => document.querySelectorAll('.__spot'
     if (t) throw new Error('error toast: ' + (await t.textContent()));
   };
 
-  await page.goto(URL, { waitUntil: 'networkidle' });
+  // 'load', not 'networkidle': the desk holds a long-lived SSE connection open, so
+  // the network never goes idle. We wait for the parties to resolve below anyway.
+  await page.goto(URL, { waitUntil: 'load' });
   // Wait until the desk discovered its parties (pid no longer the em-dash).
   await page.waitForFunction(() => {
     const el = document.getElementById('pid-buyer');
@@ -119,11 +128,10 @@ const unspot = (page) => page.evaluate(() => document.querySelectorAll('.__spot'
 
   if (errs.length) { console.error('page errors:', errs.join(' | ')); process.exit(1); }
 
-  // Playwright writes a random-named .webm; rename the newest to a stable name.
-  const files = (await readdir(MEDIA)).filter((f) => f.endsWith('.webm') && f !== 'bisik-demo-full.webm' && f !== 'bisik-demo-silent.webm');
-  if (files.length) {
-    const newest = files.map((f) => join(MEDIA, f)).sort();
-    await rename(newest[newest.length - 1], join(MEDIA, 'bisik-demo-full.webm'));
-  }
+  // Playwright writes a random-named .webm; rename the newest (by mtime) to a stable name.
+  const cands = (await readdir(MEDIA)).filter((f) => f.endsWith('.webm') && f !== 'bisik-demo-full.webm' && f !== 'bisik-demo-silent.webm');
+  const withTimes = await Promise.all(cands.map(async (f) => ({ f, m: (await stat(join(MEDIA, f))).mtimeMs })));
+  const newest = withTimes.sort((a, b) => b.m - a.m)[0];
+  if (newest) await rename(join(MEDIA, newest.f), join(MEDIA, 'bisik-demo-full.webm'));
   console.log('\n✓ demo verified end-to-end · media/bisik-demo-full.webm');
 })().catch((e) => { console.error('record failed:', e.message); process.exit(1); });
