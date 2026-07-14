@@ -161,6 +161,30 @@ testDuplicateQuoteRejected = do
   qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
   submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [qA, qA]; cashCid = cash
 
+-- Multi-instrument basket: one RFQ for two legs (1000 TBOND30 + 100 GILT10),
+-- a single sealed price for the package, settled atomically leg-by-leg.
+testBasket : Script ()
+testBasket = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  cash <- mintCash e 5000000.0
+  bondT <- mintBond e dealerA -- TBOND30 1000
+  giltA <- submit e.bondIssuer do
+    createCmd Holding with issuer = e.bondIssuer; owner = dealerA; instrument = "GILT10"; amount = 100.0
+  let legs = [Leg "TBOND30" 1000.0 (Some e.bondIssuer), Leg "GILT10" 100.0 (Some e.bondIssuer)]
+  rfq <- submit e.buyer do
+    createCmd BasketRFQ with
+      buyer = e.buyer; regulator = e.regulator; invitedDealers = [dealerA]
+      legs; payInstrument = "USDC"; payIssuer = Some e.cashIssuer; deadline = Some farFuture
+  bq <- submit dealerA do
+    exerciseCmd rfq SubmitBasketQuote with dealer = dealerA; price = 4400000.0; assetCids = [bondT, giltA]
+  submit e.buyer do exerciseCmd bq SettleBasket with cashCid = cash
+  ownedBy e.buyer <$> query @Holding e.buyer >>= \h ->
+    h === [("GILT10", 100.0), ("TBOND30", 1000.0), ("USDC", 600000.0)]
+  ownedBy dealerA <$> query @Holding dealerA >>= \h -> h === [("USDC", 4400000.0)]
+  reps <- map snd <$> query @BasketTradeReport e.regulator
+  [(length r.legs, r.clearingPrice) | r <- reps] === [(2, 4400000.0)]
+
 -- A Holding is transferable through the standard CIP-0056-aligned Token interface,
 -- not just its concrete Transfer choice — generic tooling can move it blind to type.
 testTokenInterface : Script ()

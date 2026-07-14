@@ -279,3 +279,115 @@ template TradeReport
   where
     signatory buyer, dealer
     observer regulator
+
+-- ===========================================================================
+-- Multi-instrument baskets. A buyer requests several instrument legs as ONE
+-- package; a dealer quotes a single price for the whole basket, escrowing every
+-- leg; settlement delivers all legs + cash in one atomic transaction. Additive to
+-- the single-instrument flow above (reuses Holding/EscrowedHolding), so nothing in
+-- the core RFQ path changes. Direct bilateral settle (basket auctions are future).
+-- ===========================================================================
+
+data Leg = Leg with
+    instrument : Text
+    quantity : Decimal
+    assetIssuer : Optional Party  -- if set, that leg's asset must be from this issuer
+  deriving (Eq, Show)
+
+-- Buyer requests a basket from a chosen dealer panel. Priceless, market-invisible.
+template BasketRFQ
+  with
+    buyer : Party
+    regulator : Party
+    invitedDealers : [Party]
+    legs : [Leg]
+    payInstrument : Text
+    payIssuer : Optional Party
+    deadline : Optional Time
+  where
+    signatory buyer
+    observer invitedDealers
+    ensure not (null legs) && not (null invitedDealers)
+
+    -- A dealer answers with ONE sealed price for the whole basket, locking every
+    -- leg into escrow (one EscrowedHolding per leg, order-matched to `legs`).
+    nonconsuming choice SubmitBasketQuote : ContractId BasketQuote
+      with
+        dealer : Party
+        price : Decimal
+        assetCids : [ContractId Holding]
+      controller dealer
+      do assertMsg "dealer not invited" (dealer `elem` invitedDealers)
+         assertMsg "price must be positive" (price > 0.0)
+         assertMsg "one asset per leg required" (length assetCids == length legs)
+         now <- getTime
+         assertMsg "basket RFQ has expired" (optional True (now <) deadline)
+         escrowCids <- forA (zip legs assetCids) \(leg, acid) -> do
+           asset <- fetch acid
+           assertMsg "asset not owned by dealer" (asset.owner == dealer)
+           assertMsg "wrong instrument for leg" (asset.instrument == leg.instrument)
+           assertMsg "wrong quantity for leg" (asset.amount == leg.quantity)
+           assertMsg "leg asset from unexpected issuer" (optional True (== asset.issuer) leg.assetIssuer)
+           exercise acid Lock with buyer
+         create BasketQuote with
+           buyer; regulator; dealer; legs; payInstrument; price
+           escrowCids; rfqId = Some self; payIssuer
+
+-- Sealed basket quote. Signatories dealer + buyer, no observers — rival dealers
+-- and the regulator never receive it, exactly like the single-instrument Quote.
+template BasketQuote
+  with
+    buyer : Party
+    regulator : Party
+    dealer : Party
+    legs : [Leg]
+    payInstrument : Text
+    price : Decimal
+    escrowCids : [ContractId EscrowedHolding]
+    rfqId : Optional (ContractId BasketRFQ)
+    payIssuer : Optional Party
+  where
+    signatory dealer, buyer
+
+    -- Atomic multi-leg DvP: cash to the dealer, every escrowed leg to the buyer,
+    -- one BasketTradeReport for the regulator — all in one transaction.
+    choice SettleBasket : ContractId BasketTradeReport
+      with cashCid : ContractId Holding
+      controller buyer
+      do cash <- fetch cashCid
+         assertMsg "wrong cash instrument" (cash.instrument == payInstrument)
+         assertMsg "cash owned by buyer" (cash.owner == buyer)
+         assertMsg "cash from unexpected issuer" (optional True (== cash.issuer) payIssuer)
+         assertMsg "insufficient cash" (cash.amount >= price)
+         payCid <-
+           if cash.amount == price
+             then pure cashCid
+             else do
+               (part, _rest) <- exercise cashCid Split with splitAmount = price
+               pure part
+         _ <- exercise payCid Transfer with newOwner = dealer
+         forA_ escrowCids \ecid -> exercise ecid DeliverTo with recipient = buyer
+         create BasketTradeReport with buyer; dealer; regulator; legs; clearingPrice = price
+
+    -- Dealer walks away before settle; every escrowed leg returns to the dealer.
+    choice WithdrawBasketQuote : ()
+      controller dealer
+      do forA_ escrowCids \ecid -> exercise ecid DeliverTo with recipient = dealer
+
+    -- Buyer declines; every leg returns to the dealer.
+    choice RejectBasketQuote : ()
+      controller buyer
+      do forA_ escrowCids \ecid -> exercise ecid DeliverTo with recipient = dealer
+
+-- Post-trade audit for a settled basket: the regulator sees the executed legs and
+-- the clearing price, and nothing about the RFQ or any losing quote.
+template BasketTradeReport
+  with
+    buyer : Party
+    dealer : Party
+    regulator : Party
+    legs : [Leg]
+    clearingPrice : Decimal
+  where
+    signatory buyer, dealer
+    observer regulator
