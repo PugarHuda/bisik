@@ -40,7 +40,7 @@ no clean audit trail. $30B+/month still trades this way.
   privacy itself* (`party_view(dealerA)` returns only its own quote).
 - **Autonomous market-maker agent** — a software agent that watches for RFQs it's
   invited to and auto-quotes, blind to its rivals.
-- **13 behavioural tests (+ seed scripts, 17 total), CI, deployed live on Canton Devnet.**
+- **15 behavioural tests (+ seed scripts, 19 total), CI, deployed live on Canton Devnet.**
 
 ## Why Canton (the differentiator)
 We built this exact product four times before — iExec (TEE), Stellar (ZK circuits),
@@ -50,8 +50,8 @@ ledger's data model. This is the case *for* Canton, made by someone who tried th
 alternatives.
 
 ## How it maps to the judging criteria
-- **Technical execution** — clean two-package Daml; 13 behavioural tests (privacy, Vickrey 1/2/3,
-  escrow guard, issuer binding, cross-RFQ, deadline, one-quote-per-dealer, partial fill); CI; deployed + verified on Devnet.
+- **Technical execution** — clean two-package Daml; 15 behavioural tests (privacy, Vickrey 1/2/3,
+  escrow guard, issuer binding, cross-RFQ, deadline, one-quote-per-dealer, partial fill, baskets, token interface); CI; deployed + verified on Devnet.
 - **Originality** — an agent that verifies the ledger's privacy for itself; a desk
   built five times that finally needed no cryptography stack.
 - **UX** — a three-column desk that *shows* the privacy (rival column stays blank).
@@ -85,7 +85,7 @@ contracts are running on Devnet with real sub-transaction privacy.
 
 **2 · Full interactive (local, one command).**
 ```bash
-daml build --all && cd test && daml test   # 17 scripts green (incl. privacy + Vickrey + a settled trade)
+daml build --all && cd test && daml test   # 19 scripts green (incl. privacy + Vickrey + a settled trade)
 npm run demo                                # sandbox → seed → desk at http://localhost:8080
 #   → open http://localhost:8080, create an RFQ, quote as both dealers, Award (Vickrey)
 npm run agent:demo                          # the autonomous market-maker quotes an RFQ

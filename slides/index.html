@@ -140,7 +140,7 @@ TradeReport    regulator sees the settled trade — post-trade only</div>
     <ul>
       <li>Clean two-package Daml — the deployable model DAR carries no test/script bloat.</li>
       <li>Escrow-backed atomic DvP; the reverse-Vickrey clearing is computed on-ledger in the <code>Award</code> choice.</li>
-      <li>11 behavioural tests, incl. explicit <span class="accent">privacy assertions</span> (Dealer B cannot query Dealer A’s quote), issuer-binding, and the escrow-can’t-be-yanked guard.</li>
+      <li>15 behavioural tests, incl. explicit <span class="accent">privacy assertions</span> (Dealer B cannot query Dealer A’s quote), issuer-binding, one-quote-per-dealer, partial-fill math, and the escrow-can’t-be-yanked guard.</li>
       <li>Web desk over the JSON Ledger API — award flow verified end-to-end.</li>
       <li><span class="accent">Agentic</span> — an MCP server (an agent verifies Canton's privacy itself) + an autonomous market-maker that quotes RFQs blind. Private DeFi × agentic commerce.</li>
       <li><span class="accent">Deployed live on Canton Devnet</span> (5N validator) — dealers blind pre-trade, the regulator's post-trade audit populated, all proven on-ledger.</li>
@@ -150,12 +150,12 @@ TradeReport    regulator sees the settled trade — post-trade only</div>
   <section class="slide">
     <div class="brandmark">bisik<span class="dot">.</span></div>
     <div class="kicker">Honest scope · roadmap</div>
-    <h2>What’s next.</h2>
+    <h2>Shipped, and what’s next.</h2>
     <ul>
-      <li>Buyer-attested quote set; single-round, no partial fills today.</li>
-      <li>Simple <code>Holding</code> token → <span class="accent">CIP-0056</span> token standard for wallet interop.</li>
-      <li>MPC so the settler can’t see losing bids either.</li>
-      <li>Multi-instrument panels, streaming RFQ.</li>
+      <li><span class="accent">Shipped:</span> two settlement modes — competitive Vickrey <em>and</em> direct bilateral OTC — with <span class="accent">partial fills</span>; one-quote-per-dealer enforced on-ledger.</li>
+      <li><span class="accent">Shipped:</span> <span class="accent">multi-instrument baskets</span> (atomic multi-leg DvP) and an <span class="accent">SSE push stream</span> so the desk updates the instant the ledger moves.</li>
+      <li><span class="accent">Shipped:</span> a CIP-0056-aligned <code>Token</code> interface — the plug for the full token standard (TransferInstruction / Allocation registries) next.</li>
+      <li><span class="accent">Ahead:</span> a trusted auctioneer to force the true second price even against a self-interested buyer. MPC would do it too — but that re-introduces the very cryptography Canton lets us skip.</li>
     </ul>
   </section>
 
