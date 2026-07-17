@@ -179,6 +179,33 @@ template RFQ
          forA_ (tail sorted) \(cid, _) -> exercise cid RejectQuote
          exercise winCid SettleQuote with cashCid; clearingPrice = clearing
 
+    -- Award, but the buyer takes only `fillQuantity` of the winning lot at the
+    -- prorated Vickrey (second) price. Competitive price discovery + partial fills
+    -- together: losers are returned, and the winner's unfilled remainder to it.
+    choice AwardPartial : ContractId TradeReport
+      with
+        quoteCids : [ContractId Quote]
+        cashCid : ContractId Holding
+        fillQuantity : Decimal
+      controller buyer
+      do assertMsg "no quotes submitted" (not (null quoteCids))
+         let uniqueCids = dedup quoteCids
+         assertMsg "duplicate quote ids" (length uniqueCids == length quoteCids)
+         quotes <- forA quoteCids \cid -> do
+           q <- fetch cid
+           assertMsg "quote belongs to a different RFQ" (q.rfqId == Some self)
+           pure (cid, q)
+         let dealers = map (\(_, q) -> q.dealer) quotes
+         assertMsg "a dealer may only have one quote in the auction"
+           (length (dedup dealers) == length dealers)
+         let sorted = sortOn (\(_, q) -> (q.price, q.dealer)) quotes
+         let (winCid, winQ) = head sorted
+         let clearing = case sorted of
+               _ :: (_, second) :: _ -> second.price
+               _ -> winQ.price
+         forA_ (tail sorted) \(cid, _) -> exercise cid RejectQuote
+         exercise winCid SettleQuotePartial with cashCid; clearingPrice = clearing; fillQuantity
+
     choice CancelRFQ : ()
       controller buyer
       do pure ()
@@ -224,6 +251,35 @@ template Quote
          _ <- exercise escrowCid DeliverTo with recipient = buyer
          create TradeReport with
            buyer; dealer; regulator; instrument; quantity; clearingPrice
+
+    -- Like SettleQuote but fills only `fillQuantity` of the lot at the prorated
+    -- clearing price. AwardPartial uses this to settle a winner partially at the
+    -- Vickrey (second) price; the unfilled remainder returns to the dealer.
+    choice SettleQuotePartial : ContractId TradeReport
+      with
+        cashCid : ContractId Holding
+        clearingPrice : Decimal
+        fillQuantity : Decimal
+      controller buyer
+      do assertMsg "clearing below dealer ask" (clearingPrice >= price)
+         assertMsg "fill must be positive" (fillQuantity > 0.0)
+         assertMsg "fill exceeds the quote quantity" (fillQuantity <= quantity)
+         let fillPay = clearingPrice * fillQuantity / quantity
+         cash <- fetch cashCid
+         assertMsg "wrong cash instrument" (cash.instrument == payInstrument)
+         assertMsg "cash owned by buyer" (cash.owner == buyer)
+         assertMsg "cash from unexpected issuer" (optional True (== cash.issuer) payIssuer)
+         assertMsg "insufficient cash" (cash.amount >= fillPay)
+         payCid <-
+           if cash.amount == fillPay
+             then pure cashCid
+             else do
+               (part, _rest) <- exercise cashCid Split with splitAmount = fillPay
+               pure part
+         _ <- exercise payCid Transfer with newOwner = dealer
+         _ <- exercise escrowCid DeliverSplit with toBuyer = fillQuantity
+         create TradeReport with
+           buyer; dealer; regulator; instrument; quantity = fillQuantity; clearingPrice = fillPay
 
     -- Partial bilateral fill: the buyer takes `fillQuantity` (≤ the quote's size)
     -- from this one dealer at its ask, prorated, in one atomic DvP. The unfilled

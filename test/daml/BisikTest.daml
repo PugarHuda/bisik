@@ -161,6 +161,26 @@ testDuplicateQuoteRejected = do
   qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
   submitMustFail e.buyer do exerciseCmd rfq Award with quoteCids = [qA, qA]; cashCid = cash
 
+-- Vickrey with a partial fill: A wins at 4.21M, clears at the 4.25M second price,
+-- but the buyer takes only 400 of 1000 → pays 4.25M * 400/1000 = 1,700,000.
+testPartialVickrey : Script ()
+testPartialVickrey = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  dealerB <- allocateParty "DealerB"
+  cash <- mintCash e 5000000.0
+  bondA <- mintBond e dealerA
+  bondB <- mintBond e dealerB
+  rfq <- openRfq e [dealerA, dealerB]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  qB <- submit dealerB do exerciseCmd rfq SubmitQuote with dealer = dealerB; price = 4250000.0; assetCid = bondB
+  submit e.buyer do exerciseCmd rfq AwardPartial with quoteCids = [qA, qB]; cashCid = cash; fillQuantity = 400.0
+  ownedBy e.buyer <$> query @Holding e.buyer >>= \h -> h === [("TBOND30", 400.0), ("USDC", 3300000.0)]
+  ownedBy dealerA <$> query @Holding dealerA >>= \h -> h === [("TBOND30", 600.0), ("USDC", 1700000.0)]
+  ownedBy dealerB <$> query @Holding dealerB >>= \h -> h === [("TBOND30", 1000.0)] -- loser fully returned
+  reports <- map snd <$> query @TradeReport e.regulator
+  [(r.instrument, r.quantity, r.clearingPrice) | r <- reports] === [("TBOND30", 400.0, 1700000.0)]
+
 -- Multi-instrument basket: one RFQ for two legs (1000 TBOND30 + 100 GILT10),
 -- a single sealed price for the package, settled atomically leg-by-leg.
 testBasket : Script ()
