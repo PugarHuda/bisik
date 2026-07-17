@@ -338,6 +338,41 @@ async function seedCases() {
   const quote = async (dealer, rfq, price, assetCid) => cidOfTpl(await submit(dealer, { ExerciseCommand: {
     templateId: `${PKG}:Bisik:RFQ`, contractId: rfq, choice: 'SubmitQuote', choiceArgument: { dealer, price, assetCid } } }), ':Bisik:Quote');
   const onQuote = (qCid, choice, arg) => submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qCid, choice, choiceArgument: arg } });
+  // A third dealer for the 3-dealer Vickrey cases (idempotent allocation).
+  const dealerC = await allocateOne('bisik-v5-dealerC'); await grant(dealerC);
+  // Helpers: run a full 2- or 3-dealer Vickrey and settle it.
+  const vickrey2 = async (inst, qty, pA, pB, cashAmt) => {
+    const c = await cash(cashAmt); const bA = await bond(p.dealerA, inst, qty); const bB = await bond(p.dealerB, inst, qty);
+    const rfq = await mkRfq(inst, qty); const qA = await quote(p.dealerA, rfq, pA, bA); const qB = await quote(p.dealerB, rfq, pB, bB);
+    await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq, choice: 'Award', choiceArgument: { quoteCids: [qA, qB], cashCid: c } } });
+  };
+  const vickrey3 = async (inst, qty, pA, pB, pC, cashAmt) => {
+    const c = await cash(cashAmt); const bA = await bond(p.dealerA, inst, qty); const bB = await bond(p.dealerB, inst, qty); const bC = await bond(dealerC, inst, qty);
+    const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
+      buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB, dealerC],
+      instrument: inst, quantity: qty, payInstrument: 'USDC', assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer, deadline: '2030-01-01T00:00:00Z' } } }));
+    const qA = await quote(p.dealerA, rfq, pA, bA); const qB = await quote(p.dealerB, rfq, pB, bB); const qC = await quote(dealerC, rfq, pC, bC);
+    await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq, choice: 'Award', choiceArgument: { quoteCids: [qA, qB, qC], cashCid: c } } });
+  };
+  const directOtc = async (inst, qty, price, cashAmt) => {
+    const c = await cash(cashAmt); const bA = await bond(p.dealerA, inst, qty);
+    const rfq = await mkRfq(inst, qty); const qA = await quote(p.dealerA, rfq, price, bA);
+    await onQuote(qA, 'SettleQuote', { cashCid: c, clearingPrice: price });
+  };
+  const partial = async (inst, qty, price, fill, cashAmt) => {
+    const c = await cash(cashAmt); const bA = await bond(p.dealerA, inst, qty);
+    const rfq = await mkRfq(inst, qty); const qA = await quote(p.dealerA, rfq, price, bA);
+    await onQuote(qA, 'AcceptPartial', { cashCid: c, fillQuantity: fill });
+  };
+  const basketTrade = async (legDefs, price, cashAmt) => {
+    const c = await cash(cashAmt);
+    const assetCids = []; for (const [inst, qty] of legDefs) assetCids.push(await bond(p.dealerA, inst, qty));
+    const legs = legDefs.map(([inst, qty]) => ({ instrument: inst, quantity: qty, assetIssuer: p.bondIssuer }));
+    const brfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:BasketRFQ`, createArguments: {
+      buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB], legs, payInstrument: 'USDC', payIssuer: p.cashIssuer, deadline: '2030-01-01T00:00:00Z' } } }));
+    const bq = cidOfTpl(await submit(p.dealerA, { ExerciseCommand: { templateId: `${PKG}:Bisik:BasketRFQ`, contractId: brfq, choice: 'SubmitBasketQuote', choiceArgument: { dealer: p.dealerA, price, assetCids } } }), ':Bisik:BasketQuote');
+    await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:BasketQuote`, contractId: bq, choice: 'SettleBasket', choiceArgument: { cashCid: c } } });
+  };
 
   // 1 · Competitive Vickrey (2 dealers): German Bund 10Y, A 490k / B 495k → A paid the 2nd price 495k.
   if (!doneInst.has('BUND10')) {
@@ -372,17 +407,9 @@ async function seedCases() {
     await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:BasketQuote`, contractId: bq, choice: 'SettleBasket', choiceArgument: { cashCid: c } } });
     console.log('· basket      [UST10Y 1000 + JPM28 200] @ 2,300,000 (atomic multi-leg)');
   }
-  // 5 · Three-dealer Vickrey (proves 3+ competing dealers on-chain): allocate a
-  //     third dealer; US Treasury 5Y, A 1.470M / B 1.485M / C 1.500M → A paid 1.485M.
+  // 5 · Three-dealer Vickrey (proves 3+ competing dealers on-chain): US Treasury 5Y.
   if (!doneInst.has('UST5Y')) {
-    const dealerC = await allocateOne('bisik-v5-dealerC'); await grant(dealerC);
-    const c = await cash('1500000.0');
-    const bA = await bond(p.dealerA, 'UST5Y', '1500.0'); const bB = await bond(p.dealerB, 'UST5Y', '1500.0'); const bC = await bond(dealerC, 'UST5Y', '1500.0');
-    const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
-      buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB, dealerC],
-      instrument: 'UST5Y', quantity: '1500.0', payInstrument: 'USDC', assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer, deadline: '2030-01-01T00:00:00Z' } } }));
-    const qA = await quote(p.dealerA, rfq, '1470000.0', bA); const qB = await quote(p.dealerB, rfq, '1485000.0', bB); const qC = await quote(dealerC, rfq, '1500000.0', bC);
-    await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq, choice: 'Award', choiceArgument: { quoteCids: [qA, qB, qC], cashCid: c } } });
+    await vickrey3('UST5Y', '1500.0', '1470000.0', '1485000.0', '1500000.0', '1500000.0');
     console.log('· Vickrey×3   UST5Y 1500 @ 1,485,000 (3 dealers, 2nd price)');
   }
   // 6 · Direct OTC: Microsoft 2029 corp, 400 @ 410,000 (at ask).
@@ -415,6 +442,20 @@ async function seedCases() {
     await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq, choice: 'Award', choiceArgument: { quoteCids: [qA, qB], cashCid: c } } });
     console.log('· Vickrey     GOOGL31 250 @ 260,000');
   }
+  // 10 · Vickrey: Japan Government Bond 10Y, A 1.960M / B 1.975M → A paid 1.975M.
+  if (!doneInst.has('JGB10Y')) { await vickrey2('JGB10Y', '2000.0', '1960000.0', '1975000.0', '2000000.0'); console.log('· Vickrey     JGB10Y 2000 @ 1,975,000'); }
+  // 11 · Direct OTC: France OAT 10Y, 600 @ 615,000 (at ask).
+  if (!doneInst.has('OAT10Y')) { await directOtc('OAT10Y', '600.0', '615000.0', '615000.0'); console.log('· direct OTC  OAT10Y 600 @ 615,000'); }
+  // 12 · Partial fill: Brazil 2033 sovereign, ask 720k on 800, buyer fills 500 → 450,000.
+  if (!doneInst.has('BRAZIL33')) { await partial('BRAZIL33', '800.0', '720000.0', '500.0', '500000.0'); console.log('· partial     BRAZIL33 500/800 @ 450,000'); }
+  // 13 · Three-dealer Vickrey: Tesla 2030 corp, A 310k / B 315k / C 320k → A paid 315k.
+  if (!doneInst.has('TSLA30')) { await vickrey3('TSLA30', '300.0', '310000.0', '315000.0', '320000.0', '320000.0'); console.log('· Vickrey×3   TSLA30 300 @ 315,000 (3 dealers)'); }
+  // 14 · Third basket settled: [France OAT 30Y ×400 + Japan JGB 5Y ×600] @ 1.05M.
+  if (reg.filter((e) => e.templateId.endsWith(':Bisik:BasketTradeReport')).length < 3) {
+    await basketTrade([['OAT30', '400.0'], ['JGB5Y', '600.0']], '1050000.0', '1050000.0');
+    console.log('· basket      [OAT30 400 + JGB5Y 600] @ 1,050,000');
+  }
+
   // Extra OPEN RFQs on-chain (real un-settled data): the buyer holds several live
   // requests at once, each with two sealed quotes.
   const openInst = new Set((await acsAs(p.buyer)).filter((e) => e.templateId.endsWith(':Bisik:RFQ')).map((e) => e.createArgument.instrument));
@@ -427,15 +468,27 @@ async function seedCases() {
   };
   await openRfq('UST30Y', '800.0', '3800000.0', '3820000.0');
   await openRfq('BUND30', '400.0', '1900000.0', '1920000.0');
+  await openRfq('JGB30Y', '1000.0', '2400000.0', '2415000.0');
+  await openRfq('OAT5Y', '700.0', '710000.0', '715000.0');
 
   // Tidy: direct-OTC and partial settles archive the winning Quote, not the RFQ,
-  // so those RFQ shells linger with no live quotes. Cancel any quote-less RFQ.
+  // and SettleBasket archives the BasketQuote, not the BasketRFQ — so those shells
+  // linger with no live quotes. Cancel/archive any quote-less RFQ or basket RFQ.
   const buyerNow = await acsAs(p.buyer);
   const withQuotes = new Set(buyerNow.filter((e) => e.templateId.endsWith(':Bisik:Quote')).map((e) => e.createArgument.rfqId).filter(Boolean));
   for (const r of buyerNow.filter((e) => e.templateId.endsWith(':Bisik:RFQ'))) {
     if (!withQuotes.has(r.contractId)) {
       await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: r.contractId, choice: 'CancelRFQ', choiceArgument: {} } });
       console.log(`· tidied orphan RFQ ${r.createArgument.instrument}`);
+    }
+  }
+  // BasketRFQ has no cancel choice, but the buyer is its sole signatory → the
+  // built-in Archive choice tidies the settled-basket shells (no redeploy needed).
+  const withBQuotes = new Set(buyerNow.filter((e) => e.templateId.endsWith(':Bisik:BasketQuote')).map((e) => e.createArgument.rfqId).filter(Boolean));
+  for (const r of buyerNow.filter((e) => e.templateId.endsWith(':Bisik:BasketRFQ'))) {
+    if (!withBQuotes.has(r.contractId)) {
+      await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:BasketRFQ`, contractId: r.contractId, choice: 'Archive', choiceArgument: {} } });
+      console.log('· tidied orphan BasketRFQ');
     }
   }
 
