@@ -319,6 +319,62 @@ async function seedBasket() {
   console.log('basket RFQ live with two sealed basket quotes (A 4.40M, B 4.45M).');
 }
 
+// Seed a spread of REALISTIC settled trades across instruments and settlement
+// modes (Vickrey, direct OTC, partial fill, basket), so the regulator's on-chain
+// audit trail on the hosted desk looks like a real desk's post-trade record.
+// Idempotent per instrument. Institutional tickers, block-size notionals in USD.
+async function seedCases() {
+  const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
+  const reg = await acsAs(p.regulator);
+  const doneInst = new Set(reg.filter((e) => e.templateId.endsWith(':Bisik:TradeReport')).map((e) => e.createArgument.instrument));
+  const doneBasket = reg.filter((e) => e.templateId.endsWith(':Bisik:BasketTradeReport')).length >= 1;
+
+  const cash = async (amt) => cidOf(await submit(p.cashIssuer, createHolding(p.cashIssuer, p.buyer, 'USDC', amt)));
+  const bond = async (owner, inst, qty) => cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, owner, inst, qty)));
+  const mkRfq = async (inst, qty) => cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
+    buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
+    instrument: inst, quantity: qty, payInstrument: 'USDC', assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer,
+    deadline: '2030-01-01T00:00:00Z' } } }));
+  const quote = async (dealer, rfq, price, assetCid) => cidOfTpl(await submit(dealer, { ExerciseCommand: {
+    templateId: `${PKG}:Bisik:RFQ`, contractId: rfq, choice: 'SubmitQuote', choiceArgument: { dealer, price, assetCid } } }), ':Bisik:Quote');
+  const onQuote = (qCid, choice, arg) => submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qCid, choice, choiceArgument: arg } });
+
+  // 1 · Competitive Vickrey (2 dealers): German Bund 10Y, A 490k / B 495k → A paid the 2nd price 495k.
+  if (!doneInst.has('BUND10')) {
+    const c = await cash('600000.0'); const bA = await bond(p.dealerA, 'BUND10', '500.0'); const bB = await bond(p.dealerB, 'BUND10', '500.0');
+    const rfq = await mkRfq('BUND10', '500.0');
+    const qA = await quote(p.dealerA, rfq, '490000.0', bA); const qB = await quote(p.dealerB, rfq, '495000.0', bB);
+    await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq, choice: 'Award', choiceArgument: { quoteCids: [qA, qB], cashCid: c } } });
+    console.log('· Vickrey     BUND10  500 @ 495,000 (2 dealers, 2nd price)');
+  }
+  // 2 · Direct bilateral OTC (settle at ask): US Treasury 2Y, 2,000 @ 1.98M.
+  if (!doneInst.has('UST2Y')) {
+    const c = await cash('1980000.0'); const bA = await bond(p.dealerA, 'UST2Y', '2000.0');
+    const rfq = await mkRfq('UST2Y', '2000.0'); const qA = await quote(p.dealerA, rfq, '1980000.0', bA);
+    await onQuote(qA, 'SettleQuote', { cashCid: c, clearingPrice: '1980000.0' });
+    console.log('· direct OTC  UST2Y  2000 @ 1,980,000 (at ask)');
+  }
+  // 3 · Partial fill: Apple 2030 corp, ask 520k on 500, buyer fills 300 → 312,000 prorated.
+  if (!doneInst.has('AAPL30')) {
+    const c = await cash('520000.0'); const bA = await bond(p.dealerA, 'AAPL30', '500.0');
+    const rfq = await mkRfq('AAPL30', '500.0'); const qA = await quote(p.dealerA, rfq, '520000.0', bA);
+    await onQuote(qA, 'AcceptPartial', { cashCid: c, fillQuantity: '300.0' });
+    console.log('· partial     AAPL30 300/500 @ 312,000 (prorated ask)');
+  }
+  // 4 · Multi-instrument basket settled: [US Treasury 10Y ×1000 + JPMorgan 2028 ×200] @ 2.30M.
+  if (!doneBasket) {
+    const c = await cash('2300000.0'); const t = await bond(p.dealerA, 'UST10Y', '1000.0'); const j = await bond(p.dealerA, 'JPM28', '200.0');
+    const legs = [{ instrument: 'UST10Y', quantity: '1000.0', assetIssuer: p.bondIssuer }, { instrument: 'JPM28', quantity: '200.0', assetIssuer: p.bondIssuer }];
+    const brfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:BasketRFQ`, createArguments: {
+      buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB], legs, payInstrument: 'USDC', payIssuer: p.cashIssuer, deadline: '2030-01-01T00:00:00Z' } } }));
+    const bq = cidOfTpl(await submit(p.dealerA, { ExerciseCommand: { templateId: `${PKG}:Bisik:BasketRFQ`, contractId: brfq,
+      choice: 'SubmitBasketQuote', choiceArgument: { dealer: p.dealerA, price: '2300000.0', assetCids: [t, j] } } }), ':Bisik:BasketQuote');
+    await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:BasketQuote`, contractId: bq, choice: 'SettleBasket', choiceArgument: { cashCid: c } } });
+    console.log('· basket      [UST10Y 1000 + JPM28 200] @ 2,300,000 (atomic multi-leg)');
+  }
+  console.log('\nseed-cases done — the regulator now audits a spread of real settlement types on-chain.');
+}
+
 const cmd = process.argv[2];
 (async () => {
   ENV = await loadEnv();
@@ -330,6 +386,7 @@ const cmd = process.argv[2];
   else if (cmd === 'seed') await seed();
   else if (cmd === 'settle-demo') await settleDemo();
   else if (cmd === 'seed-basket') await seedBasket();
+  else if (cmd === 'seed-cases') await seedCases();
   else if (cmd === 'verify') await verify();
-  else console.log('usage: probe | upload <dar> | allocate | seed | settle-demo | seed-basket | verify');
+  else console.log('usage: probe | upload <dar> | allocate | seed | settle-demo | seed-basket | seed-cases | verify');
 })().catch((e) => { console.error('ERR', e.message); process.exit(1); });

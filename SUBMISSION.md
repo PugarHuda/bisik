@@ -74,9 +74,11 @@ alternatives.
 
 **1 · Fastest — nothing to install (~30s).** Open **https://bisik-eight.vercel.app**
 → *Open the desk*. You see three party lenses on the **live Canton Devnet** ledger: the
-buyer holds both sealed quotes, each dealer sees only its own, the regulator sees only
-the settled trade. That blindness is the ledger model, not UI hiding — proof the
-contracts are running on Devnet with real sub-transaction privacy.
+buyer holds the sealed quotes, each dealer sees only its own, and the regulator audits a
+**spread of real settled trades** — Vickrey, direct OTC, a partial fill, and a
+multi-instrument basket, across Treasuries, Gilts, Bunds and corporates. That blindness
+is the ledger model, not UI hiding — proof the contracts are running on Devnet with real
+sub-transaction privacy.
 
 > The public desk is **read-only by design**: it proxies *reads* to Devnet with the
 > validator token kept server-side and blocks every write, so a public URL can never
