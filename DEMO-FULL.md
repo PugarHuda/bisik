@@ -222,17 +222,20 @@ Note: on the hosted read-only Devnet tab, the Accept and partial-fill buttons ar
 
 Note: the MCP server itself is `cd mcp && npm start` (it speaks over stdio to an AI client). The `agent:demo` above is the on-screen, human-readable version of the same idea.
 
-## 12b · Depth beyond the three columns (optional)
-[ON SCREEN] Talking head, or the passing `daml test` output / the model code.
-> A few capabilities live in the contracts even though the demo desk keeps to one
-> instrument for clarity. The model settles **multi-instrument baskets** — a buyer
-> requests several legs as one package, a dealer prices the whole basket, and every leg
-> plus the cash settles in a single atomic transaction, still sealed. The asset and cash
-> legs implement a **CIP-0056-aligned token interface**, so a standard wallet or
-> settlement engine can move them without knowing our template. A dealer may hold only
-> **one quote per auction**, enforced on-ledger. And the desk refreshes the instant the
-> ledger moves, over a **push stream** rather than a timer. Fifteen behavioural tests
-> cover all of it — including the privacy assertions themselves.
+## 12b · Multi-instrument baskets, and more depth (optional)
+[ON SCREEN] Buyer column → "Open basket RFQ (TBOND30 + GILT10)". A dealer whispers ONE basket price; accept it.
+> The desk isn't limited to one instrument. Down in the buyer column, "Open basket
+> RFQ" requests **two legs as one package** — a thirty-year bond *and* a ten-year gilt.
+> A dealer whispers a single sealed price for the whole basket — still invisible to its
+> rival — and when the buyer accepts, **every leg and the cash settle in one atomic
+> transaction**. Either the whole basket trades or none of it does.
+[ON SCREEN] Optional: the passing `daml test` output / the model code.
+> A few more capabilities round it out. The asset and cash legs implement a
+> **CIP-0056-aligned token interface**, so a standard wallet or settlement engine can
+> move them without knowing our template. A dealer may hold only **one quote per
+> auction**, enforced on-ledger. And the desk refreshes the instant the ledger moves,
+> over a **push stream** rather than a timer. Sixteen behavioural tests cover all of it
+> — including the privacy assertions themselves.
 
 ## 13 · Why Canton — the differentiator (9:40 – 10:25)
 [ON SCREEN] Talking head, or a slide listing the four prior chains.
@@ -283,7 +286,7 @@ One line per feature — handy when you're writing the on-screen text.
 | Regulator observer | Sees only settled trades — nothing pre-trade | Footer / Audit trail |
 | Live on Devnet | Same app, read-only, over the shared Canton Devnet validator | bisik-eight.vercel.app |
 | Read-only proxy | Serves reads with server-side credential; blocks all writes | Hosted desk |
-| Multi-instrument basket | Several legs as one package; single price, atomic multi-leg DvP | On-ledger (BasketRFQ) |
+| Multi-instrument basket | Several legs as one package; single price, atomic multi-leg DvP | Buyer "Open basket RFQ" + dealer basket quote |
 | CIP-0056 Token interface | Legs implement a standard Token so generic tooling can move them | On-ledger (Token) |
 | SSE push stream | Desk refreshes the instant the ledger moves, not on a timer | Local server `/api/stream` |
 | MCP server | Desk as read-only tools for AI agents (stdio) | `cd mcp && npm start` |

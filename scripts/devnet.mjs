@@ -289,6 +289,36 @@ async function cleanup() {
   console.log('done — buyer now holds one USDC position');
 }
 
+// Seed a live multi-instrument BASKET (TBOND30 + GILT10) with two sealed basket
+// quotes, un-settled, so the hosted desk showcases the basket lane on Devnet.
+// Mints fresh legs (the dealers' original bonds are escrowed in the single RFQ).
+// Idempotent: skips if the buyer already sees a BasketRFQ.
+async function seedBasket() {
+  const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
+  if ((await acsAs(p.buyer)).some((e) => e.templateId.endsWith(':Bisik:BasketRFQ'))) {
+    console.log('basket already seeded — nothing to do.');
+    return;
+  }
+  const legs = [
+    { instrument: 'TBOND30', quantity: '1000.0', assetIssuer: p.bondIssuer },
+    { instrument: 'GILT10', quantity: '100.0', assetIssuer: p.bondIssuer },
+  ];
+  const mkAssets = async (dealer) => [
+    cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, dealer, 'TBOND30', '1000.0'))),
+    cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, dealer, 'GILT10', '100.0'))),
+  ];
+  const aAssets = await mkAssets(p.dealerA);
+  const bAssets = await mkAssets(p.dealerB);
+  const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:BasketRFQ`, createArguments: {
+    buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
+    legs, payInstrument: 'USDC', payIssuer: p.cashIssuer, deadline: '2030-01-01T00:00:00Z' } } }));
+  const bq = (dealer, price, assetCids) => ({ ExerciseCommand: { templateId: `${PKG}:Bisik:BasketRFQ`,
+    contractId: rfq, choice: 'SubmitBasketQuote', choiceArgument: { dealer, price, assetCids } } });
+  await submit(p.dealerA, bq(p.dealerA, '4400000.0', aAssets));
+  await submit(p.dealerB, bq(p.dealerB, '4450000.0', bAssets));
+  console.log('basket RFQ live with two sealed basket quotes (A 4.40M, B 4.45M).');
+}
+
 const cmd = process.argv[2];
 (async () => {
   ENV = await loadEnv();
@@ -299,6 +329,7 @@ const cmd = process.argv[2];
   else if (cmd === 'allocate') await allocate();
   else if (cmd === 'seed') await seed();
   else if (cmd === 'settle-demo') await settleDemo();
+  else if (cmd === 'seed-basket') await seedBasket();
   else if (cmd === 'verify') await verify();
-  else console.log('usage: probe | upload <dar> | allocate | seed | settle-demo | verify');
+  else console.log('usage: probe | upload <dar> | allocate | seed | settle-demo | seed-basket | verify');
 })().catch((e) => { console.error('ERR', e.message); process.exit(1); });
