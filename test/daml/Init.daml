@@ -48,8 +48,14 @@ setup = do
 
 holdingsOnly : Script Parties
 holdingsOnly = do
-  (parties, _, _) <- setup
-  pure parties
+  (p, _, _) <- setup
+  -- A second instrument per dealer (GILT10 ×100) so the multi-instrument BASKET
+  -- flow — a TBOND30 + GILT10 package — is quotable live in the demo desk.
+  _ <- submit p.bondIssuer do
+    createCmd Holding with issuer = p.bondIssuer; owner = p.dealerA; instrument = "GILT10"; amount = 100.0
+  _ <- submit p.bondIssuer do
+    createCmd Holding with issuer = p.bondIssuer; owner = p.dealerB; instrument = "GILT10"; amount = 100.0
+  pure p
 
 initialize : Script Parties
 initialize = do

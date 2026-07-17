@@ -188,6 +188,27 @@ function renderBuyer(mine) {
   document.getElementById('btn-award').disabled = !awardable;
 }
 
+// Buyer's basket lane: show the open basket RFQ and any sealed basket quotes,
+// each settleable in one atomic multi-leg DvP.
+function renderBasketBuyer(mine) {
+  const box = document.getElementById('buyer-baskets');
+  if (!box) return;
+  const rfqs = mine.filter((c) => is(c, 'BasketRFQ'));
+  const quotes = mine.filter((c) => is(c, 'BasketQuote'));
+  if (!rfqs.length && !quotes.length) { box.innerHTML = '<div class="empty">No basket RFQ open.</div>'; return; }
+  if (!quotes.length) { box.innerHTML = '<div class="empty">Basket RFQ live — waiting for dealers…</div>'; return; }
+  box.innerHTML = quotes.map((c) => {
+    const legs = c.arg.legs.map((l) => `${esc(l.instrument)} ×${fmt(l.quantity)}`).join(' + ');
+    const cash = mine.find((h) => is(h, 'Holding') && h.arg.owner === P.buyer
+      && h.arg.instrument === c.arg.payInstrument && Number(h.arg.amount) >= Number(c.arg.price));
+    return `<div class="card">
+      <div class="row"><span>${dealerLabel(c.arg.dealer)}</span><span class="price">${fmt(c.arg.price)} ${esc(c.arg.payInstrument)}</span></div>
+      <div class="sub">${legs}</div>
+      ${cash ? `<button class="ghost" style="margin-top:6px" data-basketsettle="${c.cid}" data-tpl="${esc(c.tpl)}" data-cash="${cash.cid}">Accept basket · atomic multi-leg DvP</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
 function renderDealer(role, mine) {
   const panel = document.getElementById('body-' + role);
   // Don't clobber a half-typed ask price (and focus) mid-edit — the poll runs
@@ -218,10 +239,35 @@ function renderDealer(role, mine) {
       <div class="card"><div class="row"><span>your quote</span><span class="price">${fmt(q.arg.price)}</span></div>
       <div class="sub">${esc(q.arg.instrument)} · ${fmt(q.arg.quantity)} · sealed to buyer only</div></div>`).join('');
 
+  // ---- multi-instrument baskets: a dealer quotes ONE price for the whole package ----
+  const basketRfqs = mine.filter((c) => is(c, 'BasketRFQ'));
+  const myBasketQuotes = mine.filter((c) => is(c, 'BasketQuote') && c.arg.dealer === party);
+  const quotedBaskets = new Set(myBasketQuotes.map((q) => q.arg.rfqId));
+  const basketCards = basketRfqs.map((r) => {
+    const already = quotedBaskets.has(r.cid);
+    // one owned holding per leg (matching instrument + quantity), in leg order
+    const legAssets = r.arg.legs.map((leg) => bonds.find((b) => b.arg.instrument === leg.instrument && Number(b.arg.amount) === Number(leg.quantity)));
+    const haveAll = legAssets.every(Boolean);
+    const legTxt = r.arg.legs.map((l) => `${esc(l.instrument)} ×${fmt(l.quantity)}`).join(' + ');
+    return `
+      <div class="card">
+        <div class="row"><span>Basket RFQ</span><span class="sub">${legTxt}</span></div>
+        ${already ? '<div class="sub">you have quoted (sealed)</div>' :
+          haveAll ? `<div class="form" style="margin-top:8px">
+              <label>Basket ask (USDC) <input type="number" id="bask-${role}-${r.cid}" value="4400000" /></label>
+              <button data-basketquote="${role}" data-rfq="${r.cid}" data-tpl="${esc(r.tpl)}" data-assets="${legAssets.map((a) => a.cid).join(',')}">Whisper basket quote</button>
+            </div>` : '<div class="sub">no matching assets for all legs</div>'}
+      </div>`;
+  }).join('');
+  const basketBlock = (basketRfqs.length || myBasketQuotes.length)
+    ? `<div class="block"><h3>Incoming baskets <span class="hint">(multi-leg)</span></h3><div class="list">${basketCards || '<div class="empty">none</div>'}</div></div>`
+    : '';
+
   panel.innerHTML = `
     <div class="block"><h3>Incoming RFQs</h3><div class="list">${rfqCards || '<div class="empty">none</div>'}</div></div>
     <div class="block"><h3>Your quotes <span class="hint">(rivals can't see these)</span></h3>
       <div class="list">${mineCards || '<div class="blind">You only ever see your own quotes.<br>Rival dealers’ quotes are never sent to your node.</div>'}</div></div>
+    ${basketBlock}
     <div class="block"><h3>Your holdings</h3><div class="list mono">${holdingsHtml(mine, party)}</div></div>`;
 }
 
@@ -229,13 +275,18 @@ async function renderRegulator() {
   if (!P.regulator) return 0;
   const mine = await acs(P.regulator);
   const reports = mine.filter((c) => is(c, 'TradeReport'));
+  const baskets = mine.filter((c) => is(c, 'BasketTradeReport'));
+  const total = reports.length + baskets.length;
+  const parts = [
+    ...reports.map((r) => `${esc(r.arg.instrument)} ${fmt(r.arg.quantity)} @ ${fmt(r.arg.clearingPrice)}`),
+    ...baskets.map((r) => `basket [${r.arg.legs.map((l) => esc(l.instrument)).join(' + ')}] @ ${fmt(r.arg.clearingPrice)}`),
+  ];
   const el = document.getElementById('regulator-view');
-  el.innerHTML = reports.length
-    ? 'Regulator sees ' + reports.length + ' settled trade(s): ' +
-      reports.map((r) => `${esc(r.arg.instrument)} ${fmt(r.arg.quantity)} @ ${fmt(r.arg.clearingPrice)}`).join(', ') +
+  el.innerHTML = total
+    ? 'Regulator sees ' + total + ' settled trade(s): ' + parts.join(', ') +
       ' — and nothing about the losing quotes or the RFQ.'
     : 'Regulator view: no settled trades yet (and zero visibility into live RFQs or quotes).';
-  return reports.length;
+  return total;
 }
 
 // Glanceable KPI row. All values come from the buyer/regulator ACS the refresh
@@ -255,7 +306,7 @@ async function refresh() {
   try {
     const [b, a, d] = await Promise.all([acs(P.buyer), acs(P.dealerA), acs(P.dealerB)]);
     if (!PKG) { const any = [...b, ...a, ...d].find((c) => typeof c.tpl === 'string' && c.tpl.includes(':Bisik:')); if (any) PKG = any.tpl.split(':')[0]; }
-    renderBuyer(b); renderDealer('dealerA', a); renderDealer('dealerB', d);
+    renderBuyer(b); renderBasketBuyer(b); renderDealer('dealerA', a); renderDealer('dealerB', d);
     const settled = await renderRegulator();
     setStats({ offset: await ledgerEnd(), rfqs: b.filter((c) => is(c, 'RFQ')).length,
       quotes: b.filter((c) => is(c, 'Quote')).length, settled });
@@ -342,6 +393,47 @@ async function partialFill(quoteCid, tpl, cashCid, fillRaw, btn) {
   });
 }
 
+// ---- multi-instrument baskets ----
+const basketLegs = () => [
+  { instrument: 'TBOND30', quantity: '1000.0', assetIssuer: CFG_PARTIES.bondIssuer ?? null },
+  { instrument: 'GILT10', quantity: '100.0', assetIssuer: CFG_PARTIES.bondIssuer ?? null },
+];
+async function createBasketRFQ() {
+  if (READONLY) return toast(RO_MSG);
+  if (!PKG) return toast('package not discovered yet', true);
+  await guarded(document.getElementById('btn-create-basket'), async () => {
+    try {
+      await submit(P.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:BasketRFQ`, createArguments: {
+        buyer: P.buyer, regulator: P.regulator, invitedDealers: [P.dealerA, P.dealerB],
+        legs: basketLegs(), payInstrument: 'USDC', payIssuer: CFG_PARTIES.cashIssuer ?? null,
+        deadline: new Date(Date.now() + 86400000).toISOString().replace(/\.\d+Z$/, 'Z') } } });
+      toast('Basket RFQ sent to the dealer panel'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+async function quoteBasket(role, rfqCid, tpl, assetsCsv, priceRaw, btn) {
+  if (READONLY) return toast(RO_MSG);
+  const price = posDec(priceRaw);
+  if (!price) return toast('basket ask must be a positive number', true);
+  await guarded(btn, async () => {
+    try {
+      await submit(P[role], { ExerciseCommand: { templateId: tpl, contractId: rfqCid, choice: 'SubmitBasketQuote',
+        choiceArgument: { dealer: P[role], price, assetCids: assetsCsv.split(',') } } });
+      toast(role + ' basket quote sealed'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+async function settleBasket(quoteCid, tpl, cashCid, btn) {
+  if (READONLY) return toast(RO_MSG);
+  await guarded(btn, async () => {
+    try {
+      await submit(P.buyer, { ExerciseCommand: { templateId: tpl, contractId: quoteCid,
+        choice: 'SettleBasket', choiceArgument: { cashCid } } });
+      toast('Basket settled — atomic multi-leg DvP'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
 async function award() {
   if (READONLY) return toast(RO_MSG);
   if (!awardable) return;
@@ -357,6 +449,7 @@ async function award() {
 // ---- wire up ----
 document.getElementById('btn-create-rfq').addEventListener('click', createRFQ);
 document.getElementById('btn-award').addEventListener('click', award);
+document.getElementById('btn-create-basket')?.addEventListener('click', createBasketRFQ);
 document.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-quote]');
   if (!b) return;
@@ -374,6 +467,17 @@ document.addEventListener('click', (e) => {
   if (!b) return;
   const fill = document.getElementById('fill-' + b.dataset.partial)?.value;
   partialFill(b.dataset.partial, b.dataset.tpl, b.dataset.cash, fill, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-basketquote]');
+  if (!b) return;
+  const price = document.getElementById(`bask-${b.dataset.basketquote}-${b.dataset.rfq}`).value;
+  quoteBasket(b.dataset.basketquote, b.dataset.rfq, b.dataset.tpl, b.dataset.assets, price, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-basketsettle]');
+  if (!b) return;
+  settleBasket(b.dataset.basketsettle, b.dataset.tpl, b.dataset.cash, b);
 });
 // Sidebar in-desk nav: move the active highlight to the clicked section link.
 // (The browser handles the anchor scroll; the external links carry no "#".)
