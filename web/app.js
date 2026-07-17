@@ -48,8 +48,10 @@ const ledgerEnd = async () => {
   return r.offset;
 };
 
-const acs = (party) => retryRead(async () => {
-  const off = await ledgerEnd();
+// Active contracts for a party AT a known offset — the caller fetches ledger-end
+// once and shares it across parties, so a refresh is 1 ledger-end + N parallel
+// queries instead of one ledger-end per party (much faster with many contracts).
+const acsAt = (party, off) => retryRead(async () => {
   const rows = await api('/v2/state/active-contracts', 'POST', {
     filter: { filtersByParty: { [party]: { cumulative: [] } } },
     verbose: true,
@@ -61,6 +63,7 @@ const acs = (party) => retryRead(async () => {
     .filter(Boolean)
     .map((e) => ({ cid: e.contractId, tpl: e.templateId, arg: e.createArgument }));
 });
+const acs = async (party) => acsAt(party, await ledgerEnd());
 
 const is = (c, name) => typeof c.tpl === 'string' && c.tpl.endsWith(T(name));
 
@@ -271,9 +274,8 @@ function renderDealer(role, mine) {
     <div class="block"><h3>Your holdings</h3><div class="list mono">${holdingsHtml(mine, party)}</div></div>`;
 }
 
-async function renderRegulator() {
-  if (!P.regulator) return 0;
-  const mine = await acs(P.regulator);
+function renderRegulator(mine) {
+  if (!P.regulator || !mine) return 0;
   const reports = mine.filter((c) => is(c, 'TradeReport'));
   const baskets = mine.filter((c) => is(c, 'BasketTradeReport'));
   const total = reports.length + baskets.length;
@@ -304,11 +306,16 @@ let busy = false;
 async function refresh() {
   if (busy) return; busy = true;
   try {
-    const [b, a, d] = await Promise.all([acs(P.buyer), acs(P.dealerA), acs(P.dealerB)]);
+    // One ledger-end, then every party's contracts in parallel at that offset.
+    const off = await ledgerEnd();
+    const [b, a, d, r] = await Promise.all([
+      acsAt(P.buyer, off), acsAt(P.dealerA, off), acsAt(P.dealerB, off),
+      P.regulator ? acsAt(P.regulator, off) : Promise.resolve([]),
+    ]);
     if (!PKG) { const any = [...b, ...a, ...d].find((c) => typeof c.tpl === 'string' && c.tpl.includes(':Bisik:')); if (any) PKG = any.tpl.split(':')[0]; }
     renderBuyer(b); renderBasketBuyer(b); renderDealer('dealerA', a); renderDealer('dealerB', d);
-    const settled = await renderRegulator();
-    setStats({ offset: await ledgerEnd(), rfqs: b.filter((c) => is(c, 'RFQ')).length,
+    const settled = renderRegulator(r);
+    setStats({ offset: off, rfqs: b.filter((c) => is(c, 'RFQ')).length,
       quotes: b.filter((c) => is(c, 'Quote')).length, settled });
     setLedger('ok', 'ledger live · pkg ' + (PKG ? PKG.slice(0, 8) : '—'));
   } catch (e) {
