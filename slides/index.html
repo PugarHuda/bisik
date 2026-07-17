@@ -140,7 +140,7 @@ TradeReport    regulator sees the settled trade — post-trade only</div>
     <ul>
       <li>Clean two-package Daml — the deployable model DAR carries no test/script bloat.</li>
       <li>Escrow-backed atomic DvP; the reverse-Vickrey clearing is computed on-ledger in the <code>Award</code> choice.</li>
-      <li>15 behavioural tests, incl. explicit <span class="accent">privacy assertions</span> (Dealer B cannot query Dealer A’s quote), issuer-binding, one-quote-per-dealer, partial-fill math, and the escrow-can’t-be-yanked guard.</li>
+      <li>16 behavioural tests, incl. explicit <span class="accent">privacy assertions</span> (Dealer B cannot query Dealer A’s quote), issuer-binding, one-quote-per-dealer, partial-fill math, and the escrow-can’t-be-yanked guard.</li>
       <li>Web desk over the JSON Ledger API — award flow verified end-to-end.</li>
       <li><span class="accent">Agentic</span> — an MCP server (an agent verifies Canton's privacy itself) + an autonomous market-maker that quotes RFQs blind. Private DeFi × agentic commerce.</li>
       <li><span class="accent">Deployed live on Canton Devnet</span> (5N validator) — dealers blind pre-trade, the regulator's post-trade audit populated, all proven on-ledger.</li>
