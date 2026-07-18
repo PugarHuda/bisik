@@ -149,6 +149,16 @@ table.audit tbody tr:hover { background: var(--panel-2); }
 table.audit td.num { font-family: ui-monospace, Menlo, monospace; text-align: right; }
 table.audit td.mode { color: var(--accent); font-size: 12px; }
 .audit-empty { color: var(--muted); margin-top: 18px; }
+
+/* Portfolio view: holdings per party, aggregated by instrument. */
+.pf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 18px; }
+.pf-col { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.pf-col h3 { margin: 0 0 6px; font-size: 14px; }
+.pf-col .pid { display: block; font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+.pf-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.pf-row:last-child { border-bottom: 0; }
+.pf-row .num { font-family: ui-monospace, Menlo, monospace; }
+@media (max-width: 760px) { .pf-grid { grid-template-columns: 1fr; } }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 .side .ledger {
   margin: 0; font-size: 11px; color: var(--muted);

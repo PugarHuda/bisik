@@ -13,6 +13,7 @@
   <div class="side-net">CANTON · DEVNET<br><span>JSON Ledger API</span></div>
   <nav class="side-nav">
     <a class="on" href="#" data-view="desk"><span class="ic" aria-hidden="true">▤</span> The desk</a>
+    <a href="#" data-view="portfolio"><span class="ic" aria-hidden="true">◈</span> Portfolio</a>
     <a href="#" data-view="audit"><span class="ic" aria-hidden="true">✓</span> Audit trail</a>
     <div class="side-sep" aria-hidden="true"></div>
     <a href="/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">↗</span> Landing page</a>
@@ -70,10 +71,6 @@
           <button id="btn-create-basket" class="ghost">Open basket · TBOND30 ×1000 + GILT10 ×100</button>
           <div id="buyer-baskets" class="list" style="margin-top:8px"></div>
         </div>
-        <div class="block">
-          <h3>Your holdings</h3>
-          <div id="buyer-holdings" class="list mono"></div>
-        </div>
       </div>
     </section>
 
@@ -102,6 +99,12 @@
   <section class="audit-view" id="view-audit" hidden>
     <h2 class="audit-title">Regulator audit trail <span class="hint">post-trade only — the regulator sees nothing about live RFQs or losing quotes</span></h2>
     <div id="audit-table"></div>
+  </section>
+
+  <!-- Portfolio view: each party's holdings, aggregated by instrument. -->
+  <section class="audit-view" id="view-portfolio" hidden>
+    <h2 class="audit-title">Portfolio <span class="hint">holdings per party — each sees only its own positions</span></h2>
+    <div id="portfolio-body" class="pf-grid"></div>
   </section>
 </div>
 

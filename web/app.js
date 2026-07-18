@@ -146,8 +146,6 @@ function holdingsHtml(contracts, owner) {
 }
 
 function renderBuyer(mine) {
-  document.getElementById('buyer-holdings').innerHTML = holdingsHtml(mine, P.buyer);
-
   const rfqs = mine.filter((c) => is(c, 'RFQ'));
   const allQuotes = mine.filter((c) => is(c, 'Quote'));
   const box = document.getElementById('buyer-quotes');
@@ -270,8 +268,7 @@ function renderDealer(role, mine) {
     <div class="block"><h3>Incoming RFQs</h3><div class="list">${rfqCards || '<div class="empty">none</div>'}</div></div>
     <div class="block"><h3>Your quotes <span class="hint">(rivals can't see these)</span></h3>
       <div class="list">${mineCards || '<div class="blind">You only ever see your own quotes.<br>Rival dealers’ quotes are never sent to your node.</div>'}</div></div>
-    ${basketBlock}
-    <div class="block"><h3>Your holdings</h3><div class="list mono">${holdingsHtml(mine, party)}</div></div>`;
+    ${basketBlock}`;
 }
 
 function renderRegulator(mine) {
@@ -291,16 +288,33 @@ function renderRegulator(mine) {
   return total;
 }
 
-// ---- view switcher (sidebar) : the 3-column desk vs a dedicated audit page ----
+// ---- view switcher (sidebar): the 3-column desk · Portfolio · Audit trail ----
 let lastReg = [];
+let lastAcs = { buyer: [], dealerA: [], dealerB: [] };
 function showView(v) {
-  const audit = v === 'audit';
-  document.querySelector('.desk').style.display = audit ? 'none' : '';
-  document.querySelector('.foot').style.display = audit ? 'none' : '';
-  const av = document.getElementById('view-audit'); if (av) av.hidden = !audit;
-  const ht = document.getElementById('howto'); if (ht) ht.style.display = audit ? 'none' : '';
+  const desk = v === 'desk';
+  document.querySelector('.desk').style.display = desk ? '' : 'none';
+  document.querySelector('.foot').style.display = desk ? '' : 'none';
+  document.getElementById('view-audit').hidden = v !== 'audit';
+  document.getElementById('view-portfolio').hidden = v !== 'portfolio';
+  const ht = document.getElementById('howto'); if (ht) ht.style.display = desk ? '' : 'none';
   document.querySelectorAll('.side-nav a[data-view]').forEach((a) => a.classList.toggle('on', a.dataset.view === v));
-  if (audit) renderAudit();
+  if (v === 'audit') renderAudit();
+  if (v === 'portfolio') renderPortfolio();
+}
+// Portfolio: each party's holdings, aggregated by instrument.
+function renderPortfolio() {
+  const el = document.getElementById('portfolio-body'); if (!el) return;
+  const col = (name, party, contracts) => {
+    const byInst = {};
+    for (const h of contracts.filter((c) => is(c, 'Holding') && c.arg.owner === party))
+      byInst[h.arg.instrument] = (byInst[h.arg.instrument] ?? 0) + Number(h.arg.amount);
+    const rows = Object.entries(byInst).sort(([a], [b]) => a.localeCompare(b));
+    return `<div class="pf-col"><h3>${name}</h3><span class="pid">${party ? esc(party.split('::')[0]) : ''}</span>`
+      + (rows.length ? rows.map(([inst, amt]) => `<div class="pf-row"><span>${esc(inst)}</span><span class="num">${fmt(amt)}</span></div>`).join('')
+                     : '<div class="empty">no positions</div>') + '</div>';
+  };
+  el.innerHTML = col('Buyer', P.buyer, lastAcs.buyer) + col('Dealer A', P.dealerA, lastAcs.dealerA) + col('Dealer B', P.dealerB, lastAcs.dealerB);
 }
 function renderAudit() {
   const el = document.getElementById('audit-table'); if (!el) return;
@@ -339,7 +353,9 @@ async function refresh() {
     if (!PKG) { const any = [...b, ...a, ...d].find((c) => typeof c.tpl === 'string' && c.tpl.includes(':Bisik:')); if (any) PKG = any.tpl.split(':')[0]; }
     renderBuyer(b); renderBasketBuyer(b); renderDealer('dealerA', a); renderDealer('dealerB', d);
     const settled = renderRegulator(r);
-    lastReg = r; if (!document.getElementById('view-audit')?.hidden) renderAudit();
+    lastReg = r; lastAcs = { buyer: b, dealerA: a, dealerB: d };
+    if (!document.getElementById('view-audit')?.hidden) renderAudit();
+    if (!document.getElementById('view-portfolio')?.hidden) renderPortfolio();
     setStats({ offset: off, rfqs: b.filter((c) => is(c, 'RFQ')).length,
       quotes: b.filter((c) => is(c, 'Quote')).length, settled });
     setLedger('ok', 'ledger live · pkg ' + (PKG ? PKG.slice(0, 8) : '—'));
