@@ -179,6 +179,7 @@ function renderBuyer(mine) {
           <label>Partial fill <input type="number" id="fill-${c.cid}" value="${esc(c.arg.quantity)}" min="0" max="${esc(c.arg.quantity)}" /></label>
           <button class="ghost" data-partial="${c.cid}" data-tpl="${esc(c.tpl)}" data-cash="${cashFor.cid}">Fill partial (prorated)</button>
         </div>` : ''}
+        ${P.regulator ? `<button class="ghost disclose" style="margin-top:6px" data-disclose="${c.cid}" data-tpl="${esc(c.tpl)}">⚖ Disclose to regulator (best-execution audit)</button>` : ''}
       </div>`;
     }).join('');
 
@@ -347,11 +348,21 @@ function renderAudit() {
     ...lastReg.filter((c) => is(c, 'TradeReport')).map((c) => ({ inst: esc(c.arg.instrument), qty: fmt(c.arg.quantity), price: fmt(c.arg.clearingPrice), kind: 'single-instrument' })),
     ...lastReg.filter((c) => is(c, 'BasketTradeReport')).map((c) => ({ inst: 'basket [' + c.arg.legs.map((l) => esc(l.instrument)).join(' + ') + ']', qty: c.arg.legs.map((l) => fmt(l.quantity)).join(' / '), price: fmt(c.arg.clearingPrice), kind: 'basket' })),
   ];
-  el.innerHTML = rows.length
+  const trades = rows.length
     ? '<table class="audit"><thead><tr><th>Instrument</th><th>Quantity</th><th>Clearing price</th><th>Type</th></tr></thead><tbody>'
       + rows.map((r) => `<tr><td>${r.inst}</td><td class="num">${r.qty}</td><td class="num">${r.price}</td><td class="mode">${r.kind}</td></tr>`).join('')
       + '</tbody></table>'
     : '<div class="audit-empty">No settled trades yet — the regulator sees nothing pre-trade.</div>';
+  // Selective disclosures: sealed quotes the buyer revealed to the regulator on demand.
+  const disc = lastReg.filter((c) => is(c, 'QuoteDisclosure'));
+  const disclosures = disc.length
+    ? '<h3 style="margin-top:34px;font-size:15px;color:var(--ink)">Selectively disclosed quotes '
+      + '<span class="hint" style="font-weight:400">— sealed quotes the buyer chose to reveal to the regulator on demand (never public, never sent to rivals)</span></h3>'
+      + '<table class="audit"><thead><tr><th>Dealer</th><th>Instrument</th><th>Quantity</th><th>Quoted price</th><th>Reason</th></tr></thead><tbody>'
+      + disc.map((d) => `<tr><td>${dealerLabel(d.arg.dealer)}</td><td>${esc(d.arg.instrument)}</td><td class="num">${fmt(d.arg.quantity)}</td><td class="num">${fmt(d.arg.price)}</td><td class="mode">${esc(d.arg.reason)}</td></tr>`).join('')
+      + '</tbody></table>'
+    : '';
+  el.innerHTML = trades + disclosures;
 }
 
 // Glanceable KPI row. All values come from the buyer/regulator ACS the refresh
@@ -467,6 +478,19 @@ async function partialFill(quoteCid, tpl, cashCid, fillRaw, btn) {
   });
 }
 
+// Selective disclosure: the buyer reveals one sealed quote to the regulator on
+// demand (best-execution audit) — without making it public or telling rivals.
+async function discloseQuote(quoteCid, tpl, btn) {
+  if (READONLY) return toast(RO_MSG);
+  await guarded(btn, async () => {
+    try {
+      await submit(P.buyer, { ExerciseCommand: { templateId: tpl, contractId: quoteCid, choice: 'DiscloseTo',
+        choiceArgument: { auditor: P.regulator, reason: 'best-execution audit' } } });
+      toast('Quote selectively disclosed to the regulator — rivals still can’t see it'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
 // ---- multi-instrument baskets ----
 const basketLegs = () => [
   { instrument: 'TBOND30', quantity: '1000.0', assetIssuer: CFG_PARTIES.bondIssuer ?? null },
@@ -552,6 +576,11 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-basketsettle]');
   if (!b) return;
   settleBasket(b.dataset.basketsettle, b.dataset.tpl, b.dataset.cash, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-disclose]');
+  if (!b) return;
+  discloseQuote(b.dataset.disclose, b.dataset.tpl, b);
 });
 // Sidebar view switcher: swap the main area between the 3-column desk and the
 // dedicated audit-trail page (external links carry no data-view and navigate away).

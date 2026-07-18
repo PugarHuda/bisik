@@ -181,6 +181,27 @@ testPartialVickrey = do
   reports <- map snd <$> query @TradeReport e.regulator
   [(r.instrument, r.quantity, r.clearingPrice) | r <- reports] === [("TBOND30", 400.0, 1700000.0)]
 
+-- Selective disclosure: the buyer reveals ONE sealed quote to a chosen auditor on
+-- demand (e.g. best-execution audit). The auditor receives exactly that quote; a
+-- rival dealer never does, and the quote itself stays sealed.
+testSelectiveDisclosure : Script ()
+testSelectiveDisclosure = do
+  e <- setupEnv
+  dealerA <- allocateParty "DealerA"
+  dealerB <- allocateParty "DealerB"
+  auditor <- allocateParty "Auditor"
+  bondA <- mintBond e dealerA
+  bondB <- mintBond e dealerB
+  rfq <- openRfq e [dealerA, dealerB]
+  qA <- submit dealerA do exerciseCmd rfq SubmitQuote with dealer = dealerA; price = 4210000.0; assetCid = bondA
+  _ <- submit dealerB do exerciseCmd rfq SubmitQuote with dealer = dealerB; price = 4250000.0; assetCid = bondB
+  (=== []) =<< query @QuoteDisclosure auditor -- auditor sees nothing pre-disclosure
+  submit e.buyer do exerciseCmd qA DiscloseTo with auditor; reason = "best-execution audit"
+  disc <- map snd <$> query @QuoteDisclosure auditor
+  [(d.dealer, d.price, d.reason) | d <- disc] === [(dealerA, 4210000.0, "best-execution audit")]
+  (=== []) =<< query @QuoteDisclosure dealerB -- a rival dealer never receives it
+  (isNone <$> queryContractId dealerB qA) >>= assertMsg "rival still can't see A's quote"
+
 -- Multi-instrument basket: one RFQ for two legs (1000 TBOND30 + 100 GILT10),
 -- a single sealed price for the package, settled atomically leg-by-leg.
 testBasket : Script ()

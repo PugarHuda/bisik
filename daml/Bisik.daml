@@ -322,6 +322,20 @@ template Quote
       do _ <- exercise escrowCid DeliverTo with recipient = dealer
          pure ()
 
+    -- Selective disclosure — Canton's real superpower. The buyer reveals THIS
+    -- sealed quote to a chosen auditor (a regulator, an arbiter) on demand — e.g.
+    -- to prove best execution, or to resolve a dispute — WITHOUT ever making it
+    -- public or revealing it to rival dealers. Who sees what is chosen per
+    -- contract, at any time. The quote itself stays sealed; only the named auditor
+    -- receives this disclosure.
+    nonconsuming choice DiscloseTo : ContractId QuoteDisclosure
+      with
+        auditor : Party
+        reason : Text
+      controller buyer
+      do create QuoteDisclosure with
+           buyer; auditor; dealer; instrument; quantity; price; reason
+
 -- Post-trade transparency: the regulator sees the executed trade - and only
 -- the executed trade. Pre-trade flow (RFQ, losing quotes) stays dark to them.
 template TradeReport
@@ -335,6 +349,23 @@ template TradeReport
   where
     signatory buyer, dealer
     observer regulator
+
+-- An on-demand disclosure of one sealed quote to a chosen auditor (see
+-- Quote.DiscloseTo). Only the buyer who disclosed it and that auditor ever receive
+-- it — rival dealers and the public never do. Selective disclosure: privacy you
+-- control, per contract, at any time — not all-or-nothing transparency.
+template QuoteDisclosure
+  with
+    buyer : Party
+    auditor : Party
+    dealer : Party
+    instrument : Text
+    quantity : Decimal
+    price : Decimal
+    reason : Text
+  where
+    signatory buyer
+    observer auditor
 
 -- ===========================================================================
 -- Multi-instrument baskets. A buyer requests several instrument legs as ONE
