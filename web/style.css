@@ -125,6 +125,19 @@ body.app { display: grid; grid-template-columns: 236px 1fr; min-height: 100vh; }
 html { scroll-behavior: smooth; }
 #top, #nav-rfq, #nav-settle, #nav-audit { scroll-margin-top: 76px; }
 
+/* "How to drive it" guide strip under the stats row. */
+.howto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
+  padding: 10px 22px; font-size: 12.5px; color: var(--muted);
+  background: var(--panel-2); border-bottom: 1px solid var(--line); }
+.howto strong { color: var(--ink); font-weight: 600; }
+.howto span { display: inline-flex; align-items: center; gap: 7px; }
+.howto b { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--accent-dim); color: var(--accent); font-size: 11px; font-weight: 700; }
+.howto em { color: var(--ink); font-style: normal; font-weight: 600; }
+.howto i { color: var(--muted); }
+.howto-x { margin-left: auto; background: none; border: 0; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 4px; }
+.howto-x:hover { color: var(--ink); }
+
 /* Audit-trail view (sidebar → Audit trail): the regulator's post-trade record. */
 .audit-view { flex: 1; padding: 22px 24px; overflow-y: auto; }
 .audit-title { font-size: 17px; font-weight: 600; margin: 0; }

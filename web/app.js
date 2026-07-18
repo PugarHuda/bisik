@@ -298,6 +298,7 @@ function showView(v) {
   document.querySelector('.desk').style.display = audit ? 'none' : '';
   document.querySelector('.foot').style.display = audit ? 'none' : '';
   const av = document.getElementById('view-audit'); if (av) av.hidden = !audit;
+  const ht = document.getElementById('howto'); if (ht) ht.style.display = audit ? 'none' : '';
   document.querySelectorAll('.side-nav a[data-view]').forEach((a) => a.classList.toggle('on', a.dataset.view === v));
   if (audit) renderAudit();
 }
@@ -518,6 +519,7 @@ document.querySelector('.side-nav')?.addEventListener('click', (e) => {
   e.preventDefault();
   showView(a.dataset.view);
 });
+document.getElementById('howto-x')?.addEventListener('click', () => document.getElementById('howto')?.remove());
 
 (async function main() {
   try {
