@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const FULL = process.argv.includes('--full');
+const CASES = process.argv.includes('--cases'); // rich seed: many settled trades + open RFQ/basket
 
 // Locate the daml CLI and a JDK, tolerating a bare environment.
 const damlCmd = process.env.DAML_CMD
@@ -102,9 +103,10 @@ process.on('exit', cleanup);
   });
   console.log('· sandbox up (JSON API :7575)');
 
-  console.log(`· seeding (${FULL ? 'full RFQ + quotes' : 'holdings only'})…`);
+  const scriptName = CASES ? 'Init:richSeed' : FULL ? 'Init:initialize' : 'Init:holdingsOnly';
+  console.log(`· seeding (${CASES ? 'rich: many settled trades + open RFQ/basket' : FULL ? 'full RFQ + quotes' : 'holdings only'})…`);
   await shRetry(damlCmd, ['script', '--dar', 'test/.daml/dist/bisik-test-0.1.0.dar',
-    '--script-name', FULL ? 'Init:initialize' : 'Init:holdingsOnly',
+    '--script-name', scriptName,
     '--ledger-host', 'localhost', '--ledger-port', '6865', '--no-legacy-assistant-warning']);
 
   console.log('· starting desk on http://localhost:8080');

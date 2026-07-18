@@ -46,6 +46,90 @@ setup = do
         , ("regulator", regulator) ] \(label, p) -> debug (label <> " = " <> show p)
   pure (parties, bondA, bondB)
 
+-- ---- helpers for the rich demo seed ----
+farFut : Time
+farFut = time (date 2030 Jan 1) 0 0 0
+
+cashFor : Parties -> Decimal -> Script (ContractId Holding)
+cashFor p amt = submit p.cashIssuer do
+  createCmd Holding with issuer = p.cashIssuer; owner = p.buyer; instrument = "USDC"; amount = amt
+
+bondFor : Parties -> Party -> Text -> Decimal -> Script (ContractId Holding)
+bondFor p owner inst qty = submit p.bondIssuer do
+  createCmd Holding with issuer = p.bondIssuer; owner; instrument = inst; amount = qty
+
+rfqFor : Parties -> [Party] -> Text -> Decimal -> Script (ContractId RFQ)
+rfqFor p dealers inst qty = submit p.buyer do
+  createCmd RFQ with
+    buyer = p.buyer; regulator = p.regulator; invitedDealers = dealers
+    instrument = inst; quantity = qty; payInstrument = "USDC"
+    assetIssuer = Some p.bondIssuer; payIssuer = Some p.cashIssuer; deadline = Some farFut
+
+qOn : ContractId RFQ -> Party -> Decimal -> ContractId Holding -> Script (ContractId Quote)
+qOn rfq dealer price asset = submit dealer do
+  exerciseCmd rfq SubmitQuote with dealer; price; assetCid = asset
+
+-- A RICH pre-seeded desk: several settled trades across settlement modes and
+-- instruments (so the regulator's audit is realistic on open), plus an open RFQ
+-- and an open basket to drive live. Run with: npm run demo:cases
+richSeed : Script Parties
+richSeed = do
+  (p, _, _) <- setup
+
+  -- 1 · Vickrey (2 dealers): GILT10, A 190k / B 195k → A paid the 2nd price 195k.
+  do c <- cashFor p 200000.0; ga <- bondFor p p.dealerA "GILT10" 100.0; gb <- bondFor p p.dealerB "GILT10" 100.0
+     rfq <- rfqFor p [p.dealerA, p.dealerB] "GILT10" 100.0
+     qa <- qOn rfq p.dealerA 190000.0 ga; qb <- qOn rfq p.dealerB 195000.0 gb
+     submit p.buyer do exerciseCmd rfq Award with quoteCids = [qa, qb]; cashCid = c
+  -- 2 · Direct OTC (settle at ask): German Bund 10Y, 500 @ 495,000.
+  do c <- cashFor p 495000.0; ba <- bondFor p p.dealerA "BUND10" 500.0
+     rfq <- rfqFor p [p.dealerA, p.dealerB] "BUND10" 500.0
+     qa <- qOn rfq p.dealerA 495000.0 ba
+     submit p.buyer do exerciseCmd qa SettleQuote with cashCid = c; clearingPrice = 495000.0
+     submit p.buyer do exerciseCmd rfq CancelRFQ -- tidy the settled RFQ shell
+  -- 3 · Partial fill: Apple 2030 corp, ask 520k on 500, buyer fills 300 → 312,000.
+  do c <- cashFor p 520000.0; ba <- bondFor p p.dealerA "AAPL30" 500.0
+     rfq <- rfqFor p [p.dealerA, p.dealerB] "AAPL30" 500.0
+     qa <- qOn rfq p.dealerA 520000.0 ba
+     submit p.buyer do exerciseCmd qa AcceptPartial with cashCid = c; fillQuantity = 300.0
+     submit p.buyer do exerciseCmd rfq CancelRFQ -- tidy the settled RFQ shell
+  -- 4 · Three-dealer Vickrey: US Treasury 5Y, A 1.470M / B 1.485M / C 1.500M → 1.485M.
+  do dealerC <- allocateParty "DealerC"
+     c <- cashFor p 1500000.0
+     ba <- bondFor p p.dealerA "UST5Y" 1500.0; bb <- bondFor p p.dealerB "UST5Y" 1500.0; bc <- bondFor p dealerC "UST5Y" 1500.0
+     rfq <- rfqFor p [p.dealerA, p.dealerB, dealerC] "UST5Y" 1500.0
+     qa <- qOn rfq p.dealerA 1470000.0 ba; qb <- qOn rfq p.dealerB 1485000.0 bb; qc <- qOn rfq dealerC 1500000.0 bc
+     submit p.buyer do exerciseCmd rfq Award with quoteCids = [qa, qb, qc]; cashCid = c
+  -- 5 · Basket settled (atomic multi-leg): [US Treasury 10Y ×1000 + JPMorgan 2028 ×200] @ 2.30M.
+  do c <- cashFor p 2300000.0; t <- bondFor p p.dealerA "UST10Y" 1000.0; j <- bondFor p p.dealerA "JPM28" 200.0
+     let legs = [Leg "UST10Y" 1000.0 (Some p.bondIssuer), Leg "JPM28" 200.0 (Some p.bondIssuer)]
+     brfq <- submit p.buyer do
+       createCmd BasketRFQ with buyer = p.buyer; regulator = p.regulator; invitedDealers = [p.dealerA, p.dealerB]
+                                legs; payInstrument = "USDC"; payIssuer = Some p.cashIssuer; deadline = Some farFut
+     bq <- submit p.dealerA do exerciseCmd brfq SubmitBasketQuote with dealer = p.dealerA; price = 2300000.0; assetCids = [t, j]
+     submit p.buyer do exerciseCmd bq SettleBasket with cashCid = c
+     submit p.buyer do archiveCmd brfq -- tidy the settled BasketRFQ shell
+
+  -- OPEN RFQ (the money shot, un-settled): TBOND30 with two sealed quotes.
+  do ba <- bondFor p p.dealerA "TBOND30" 1000.0; bb <- bondFor p p.dealerB "TBOND30" 1000.0
+     rfq <- rfqFor p [p.dealerA, p.dealerB] "TBOND30" 1000.0
+     _ <- qOn rfq p.dealerA 4210000.0 ba; _ <- qOn rfq p.dealerB 4250000.0 bb
+     pure ()
+  -- OPEN basket (un-settled): [TBOND30 ×1000 + GILT10 ×100] with a sealed quote.
+  do ta <- bondFor p p.dealerA "TBOND30" 1000.0; ga <- bondFor p p.dealerA "GILT10" 100.0
+     let legs = [Leg "TBOND30" 1000.0 (Some p.bondIssuer), Leg "GILT10" 100.0 (Some p.bondIssuer)]
+     brfq <- submit p.buyer do
+       createCmd BasketRFQ with buyer = p.buyer; regulator = p.regulator; invitedDealers = [p.dealerA, p.dealerB]
+                                legs; payInstrument = "USDC"; payIssuer = Some p.cashIssuer; deadline = Some farFut
+     _ <- submit p.dealerA do exerciseCmd brfq SubmitBasketQuote with dealer = p.dealerA; price = 4400000.0; assetCids = [ta, ga]
+     pure ()
+
+  -- A working cash balance so the buyer can still drive live settlements.
+  _ <- cashFor p 5000000.0
+  forA_ [ ("buyer", p.buyer), ("dealerA", p.dealerA), ("dealerB", p.dealerB), ("regulator", p.regulator) ]
+    \(label, party) -> debug (label <> " = " <> show party)
+  pure p
+
 holdingsOnly : Script Parties
 holdingsOnly = do
   (p, _, _) <- setup
