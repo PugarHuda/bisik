@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Sequence, useCurrentFrame, interpolate, spring, useVideoConfig } from 'remotion';
 
 export const FPS = 30;
-export const TOTAL_FRAMES = 1170; // 39s
+export const TOTAL_FRAMES = 1620; // 54s
 
 // ---- Bisik palette ----
 const BG = '#0b0d10';
@@ -198,13 +198,81 @@ const Close: React.FC = () => {
   );
 };
 
+// ---------- Scene · Verify the privacy (live proof) ----------
+const CheckRow: React.FC<{ label: string; detail: string; delay: number }> = ({ label, detail, delay }) => {
+  const f = useCurrentFrame(); const { fps } = useVideoConfig();
+  const s = rise(f, fps, delay);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 26, background: PANEL, border: `1px solid ${LINE}`, borderRadius: 12, padding: '22px 30px', opacity: s, transform: `translateX(${(1 - s) * -26}px)` }}>
+      <div style={{ width: 54, height: 54, flexShrink: 0, borderRadius: '50%', background: '#2b5a48', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, fontWeight: 800 }}>✓</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 32, fontWeight: 700, color: INK }}>{label}</div>
+        <div style={{ fontSize: 26, color: MUTED, marginTop: 4 }}>{detail}</div>
+      </div>
+    </div>
+  );
+};
+const Verify: React.FC = () => {
+  const f = useCurrentFrame();
+  return (
+    <AbsoluteFill style={{ padding: '80px 9%', justifyContent: 'center' }}>
+      <div style={{ fontSize: 32, color: ACCENT, letterSpacing: '0.16em', textTransform: 'uppercase', opacity: fade(f, 2) }}>Don’t take our word — check the ledger</div>
+      <div style={{ fontSize: 56, color: INK, fontWeight: 700, margin: '16px 0 30px', opacity: fade(f, 10) }}>Verify the privacy, live.</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <CheckRow label="Dealer A’s node" detail="holds 1 sealed quote — its own. Rivals’ quotes received: 0." delay={20} />
+        <CheckRow label="Dealer B’s node" detail="holds 1 sealed quote — its own. Rivals’ quotes received: 0." delay={36} />
+        <CheckRow label="Regulator’s node" detail="pre-trade visibility: none — only settled trades, after the fact." delay={52} />
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ---------- Scene · Selective disclosure ----------
+const Disclosure: React.FC = () => {
+  const f = useCurrentFrame();
+  return (
+    <AbsoluteFill style={centered}>
+      <div style={{ fontSize: 32, color: ACCENT, letterSpacing: '0.16em', textTransform: 'uppercase', opacity: fade(f, 2) }}>Selective disclosure</div>
+      <div style={{ fontSize: 62, color: INK, fontWeight: 700, marginTop: 20, opacity: fade(f, 12), maxWidth: 1500, lineHeight: 1.15 }}>
+        Privacy you <span style={{ color: ACCENT }}>control</span> — not all-or-nothing.
+      </div>
+      <div style={{ fontSize: 40, color: MUTED, marginTop: 32, maxWidth: 1360, lineHeight: 1.4, opacity: fade(f, 34) }}>
+        Need to prove best execution, or settle a dispute? Reveal one sealed quote to a named
+        auditor — <span style={{ color: INK }}>on demand</span>. The market never sees it. Rivals
+        never see it. You choose who sees what, per contract, at any time.
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ---------- Scene · Agent-native ----------
+const Agentic: React.FC = () => {
+  const f = useCurrentFrame();
+  return (
+    <AbsoluteFill style={centered}>
+      <div style={{ fontSize: 32, color: ACCENT, letterSpacing: '0.16em', textTransform: 'uppercase', opacity: fade(f, 2) }}>Agent-native</div>
+      <div style={{ fontSize: 60, color: INK, fontWeight: 700, marginTop: 20, opacity: fade(f, 12), maxWidth: 1500, lineHeight: 1.15 }}>
+        An AI agent verifies the privacy itself.
+      </div>
+      <div style={{ fontSize: 38, color: MUTED, marginTop: 30, maxWidth: 1360, lineHeight: 1.4, opacity: fade(f, 34) }}>
+        The desk is exposed as MCP tools. An autonomous market-maker auto-quotes the RFQs it’s
+        invited to — blind to its rivals, like a real dealer. And an agent can ask the ledger,
+        “as Dealer A, what do I see?” and get back only its own data.
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 export const BisikPitch: React.FC = () => (
   <AbsoluteFill style={{ backgroundColor: BG, fontFamily: SANS }}>
     <Sequence durationInFrames={120}><Intro /></Sequence>
     <Sequence from={120} durationInFrames={150}><Problem /></Sequence>
-    <Sequence from={270} durationInFrames={300}><MoneyShot /></Sequence>
-    <Sequence from={570} durationInFrames={180}><Settlement /></Sequence>
-    <Sequence from={750} durationInFrames={240}><WhyCanton /></Sequence>
-    <Sequence from={990} durationInFrames={180}><Close /></Sequence>
+    <Sequence from={270} durationInFrames={270}><MoneyShot /></Sequence>
+    <Sequence from={540} durationInFrames={180}><Verify /></Sequence>
+    <Sequence from={720} durationInFrames={150}><Settlement /></Sequence>
+    <Sequence from={870} durationInFrames={180}><Disclosure /></Sequence>
+    <Sequence from={1050} durationInFrames={150}><Agentic /></Sequence>
+    <Sequence from={1200} durationInFrames={240}><WhyCanton /></Sequence>
+    <Sequence from={1440} durationInFrames={180}><Close /></Sequence>
   </AbsoluteFill>
 );
