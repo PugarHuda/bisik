@@ -12,10 +12,8 @@
   <a class="side-brand" href="/">bisik<span class="dot">.</span></a>
   <div class="side-net">CANTON · DEVNET<br><span>JSON Ledger API</span></div>
   <nav class="side-nav">
-    <a class="on" href="#top"><span class="ic" aria-hidden="true">▤</span> The desk</a>
-    <a href="#nav-rfq"><span class="ic" aria-hidden="true">⇄</span> Create RFQ</a>
-    <a href="#nav-settle"><span class="ic" aria-hidden="true">◆</span> Settlement</a>
-    <a href="#nav-audit"><span class="ic" aria-hidden="true">✓</span> Audit trail</a>
+    <a class="on" href="#" data-view="desk"><span class="ic" aria-hidden="true">▤</span> The desk</a>
+    <a href="#" data-view="audit"><span class="ic" aria-hidden="true">✓</span> Audit trail</a>
     <div class="side-sep" aria-hidden="true"></div>
     <a href="/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">↗</span> Landing page</a>
     <a href="https://github.com/PugarHuda/bisik" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">↗</span> GitHub</a>
@@ -91,6 +89,12 @@
     </div>
     <div id="regulator-view" class="reg"></div>
   </footer>
+
+  <!-- Audit-trail view: the regulator's post-trade record as a table. -->
+  <section class="audit-view" id="view-audit" hidden>
+    <h2 class="audit-title">Regulator audit trail <span class="hint">post-trade only — the regulator sees nothing about live RFQs or losing quotes</span></h2>
+    <div id="audit-table"></div>
+  </section>
 </div>
 
 <script src="app.js"></script>

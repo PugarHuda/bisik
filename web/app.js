@@ -291,6 +291,29 @@ function renderRegulator(mine) {
   return total;
 }
 
+// ---- view switcher (sidebar) : the 3-column desk vs a dedicated audit page ----
+let lastReg = [];
+function showView(v) {
+  const audit = v === 'audit';
+  document.querySelector('.desk').style.display = audit ? 'none' : '';
+  document.querySelector('.foot').style.display = audit ? 'none' : '';
+  const av = document.getElementById('view-audit'); if (av) av.hidden = !audit;
+  document.querySelectorAll('.side-nav a[data-view]').forEach((a) => a.classList.toggle('on', a.dataset.view === v));
+  if (audit) renderAudit();
+}
+function renderAudit() {
+  const el = document.getElementById('audit-table'); if (!el) return;
+  const rows = [
+    ...lastReg.filter((c) => is(c, 'TradeReport')).map((c) => ({ inst: esc(c.arg.instrument), qty: fmt(c.arg.quantity), price: fmt(c.arg.clearingPrice), kind: 'single-instrument' })),
+    ...lastReg.filter((c) => is(c, 'BasketTradeReport')).map((c) => ({ inst: 'basket [' + c.arg.legs.map((l) => esc(l.instrument)).join(' + ') + ']', qty: c.arg.legs.map((l) => fmt(l.quantity)).join(' / '), price: fmt(c.arg.clearingPrice), kind: 'basket' })),
+  ];
+  el.innerHTML = rows.length
+    ? '<table class="audit"><thead><tr><th>Instrument</th><th>Quantity</th><th>Clearing price</th><th>Type</th></tr></thead><tbody>'
+      + rows.map((r) => `<tr><td>${r.inst}</td><td class="num">${r.qty}</td><td class="num">${r.price}</td><td class="mode">${r.kind}</td></tr>`).join('')
+      + '</tbody></table>'
+    : '<div class="audit-empty">No settled trades yet — the regulator sees nothing pre-trade.</div>';
+}
+
 // Glanceable KPI row. All values come from the buyer/regulator ACS the refresh
 // loop already fetched; only the offset is a fresh (cheap) read for a liveness pulse.
 function setStats({ offset, rfqs, quotes, settled }) {
@@ -315,6 +338,7 @@ async function refresh() {
     if (!PKG) { const any = [...b, ...a, ...d].find((c) => typeof c.tpl === 'string' && c.tpl.includes(':Bisik:')); if (any) PKG = any.tpl.split(':')[0]; }
     renderBuyer(b); renderBasketBuyer(b); renderDealer('dealerA', a); renderDealer('dealerB', d);
     const settled = renderRegulator(r);
+    lastReg = r; if (!document.getElementById('view-audit')?.hidden) renderAudit();
     setStats({ offset: off, rfqs: b.filter((c) => is(c, 'RFQ')).length,
       quotes: b.filter((c) => is(c, 'Quote')).length, settled });
     setLedger('ok', 'ledger live · pkg ' + (PKG ? PKG.slice(0, 8) : '—'));
@@ -486,13 +510,13 @@ document.addEventListener('click', (e) => {
   if (!b) return;
   settleBasket(b.dataset.basketsettle, b.dataset.tpl, b.dataset.cash, b);
 });
-// Sidebar in-desk nav: move the active highlight to the clicked section link.
-// (The browser handles the anchor scroll; the external links carry no "#".)
+// Sidebar view switcher: swap the main area between the 3-column desk and the
+// dedicated audit-trail page (external links carry no data-view and navigate away).
 document.querySelector('.side-nav')?.addEventListener('click', (e) => {
-  const a = e.target.closest('a[href^="#"]');
+  const a = e.target.closest('a[data-view]');
   if (!a) return;
-  document.querySelectorAll('.side-nav a').forEach((x) => x.classList.remove('on'));
-  a.classList.add('on');
+  e.preventDefault();
+  showView(a.dataset.view);
 });
 
 (async function main() {

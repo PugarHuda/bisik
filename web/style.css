@@ -124,6 +124,18 @@ body.app { display: grid; grid-template-columns: 236px 1fr; min-height: 100vh; }
    global * { scroll-behavior: auto } rule above.) */
 html { scroll-behavior: smooth; }
 #top, #nav-rfq, #nav-settle, #nav-audit { scroll-margin-top: 76px; }
+
+/* Audit-trail view (sidebar → Audit trail): the regulator's post-trade record. */
+.audit-view { flex: 1; padding: 22px 24px; overflow-y: auto; }
+.audit-title { font-size: 17px; font-weight: 600; margin: 0; }
+.audit-title .hint { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 5px; }
+table.audit { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+table.audit th, table.audit td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+table.audit th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+table.audit tbody tr:hover { background: var(--panel-2); }
+table.audit td.num { font-family: ui-monospace, Menlo, monospace; text-align: right; }
+table.audit td.mode { color: var(--accent); font-size: 12px; }
+.audit-empty { color: var(--muted); margin-top: 18px; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 .side .ledger {
   margin: 0; font-size: 11px; color: var(--muted);
