@@ -191,5 +191,22 @@ UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
   dealer (`testDuplicateDealerRejected`).
 - Partial fills — `Quote.AcceptPartial` settles part of a lot at the prorated ask
   via `EscrowedHolding.DeliverSplit` (remainder returns to the dealer);
-  `testPartialFill` checks the exact money math.
+  `testPartialFill` checks the exact money math. Also on the Vickrey rail
+  (`RFQ.AwardPartial` / `Quote.SettleQuotePartial`, `testPartialVickrey`).
+- Multi-instrument baskets (`BasketRFQ`/`BasketQuote`/`BasketTradeReport`,
+  `testBasket`), CIP-0056-aligned `Token` interface (`testTokenInterface`), a
+  live-seed variant (`npm run demo:cases`, `Init:richSeed`), a "Verify privacy"
+  on-ledger proof view, a Portfolio view, and **selective disclosure**
+  (`Quote.DiscloseTo` → `QuoteDisclosure`, `testSelectiveDisclosure`) — the buyer
+  reveals one sealed quote to an auditor on demand, never to rivals or the public.
+
+**Known scope — Canton smart-contract-upgrade (SCU):** the deployed Devnet package
+is **v0.5.0** (`5e851293`). The newest write-path features (`AwardPartial`,
+`DiscloseTo`) live in the repo + local demo but were **not redeployed** as a v0.6.0
+upgrade: an in-package interface (`Bisik:Token`) changes package id per version, so
+Canton's SCU check rejects any same-name `bisik` v0.6.0 as an invalid upgrade of
+v0.5.0 ("interface implementation appears in old package but not new"). The proper
+fix is to move the interface to a separate, stable package; for the hackathon these
+features are demonstrated locally (they're writes, unusable on the read-only hosted
+URL anyway). The rich v0.5.0 deployment (15 settled trades, all read views) stays live.
 - Live dashboard KPI tiles; functional in-app sidebar nav; Playwright video recorder.
