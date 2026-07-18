@@ -14,6 +14,7 @@
   <nav class="side-nav">
     <a class="on" href="#" data-view="desk"><span class="ic" aria-hidden="true">▤</span> The desk</a>
     <a href="#" data-view="portfolio"><span class="ic" aria-hidden="true">◈</span> Portfolio</a>
+    <a href="#" data-view="verify"><span class="ic" aria-hidden="true">◉</span> Verify privacy</a>
     <a href="#" data-view="audit"><span class="ic" aria-hidden="true">✓</span> Audit trail</a>
     <div class="side-sep" aria-hidden="true"></div>
     <a href="/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">↗</span> Landing page</a>
@@ -105,6 +106,14 @@
   <section class="audit-view" id="view-portfolio" hidden>
     <h2 class="audit-title">Portfolio <span class="hint">holdings per party — each sees only its own positions</span></h2>
     <div id="portfolio-body" class="pf-grid"></div>
+  </section>
+
+  <!-- Verify-privacy view: a live, on-ledger proof that each node only ever
+       receives its own data. Computed from what each party's ACS actually returns. -->
+  <section class="audit-view" id="view-verify" hidden>
+    <h2 class="audit-title">Verify the privacy — live, on-ledger
+      <span class="hint">this queries what each party's node actually received from the ledger; it is not the UI filtering anything</span></h2>
+    <div id="verify-body"></div>
   </section>
 </div>
 

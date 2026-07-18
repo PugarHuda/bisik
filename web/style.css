@@ -159,6 +159,19 @@ table.audit td.mode { color: var(--accent); font-size: 12px; }
 .pf-row:last-child { border-bottom: 0; }
 .pf-row .num { font-family: ui-monospace, Menlo, monospace; }
 @media (max-width: 760px) { .pf-grid { grid-template-columns: 1fr; } }
+
+/* Verify-privacy view: a live on-ledger proof. */
+.vf-verdict { font-size: 22px; font-weight: 700; color: var(--muted); margin-top: 22px; }
+.vf-verdict.ok { color: var(--accent); }
+.vf-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; max-width: 1150px; }
+.vf-row { display: flex; align-items: center; gap: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; }
+.vf-name { width: 200px; font-weight: 600; color: var(--ink); font-size: 15px; }
+.vf-detail { flex: 1; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.vf-detail b { color: var(--ink); font-family: ui-monospace, Menlo, monospace; }
+.vf-badge { width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; }
+.vf-badge.ok { background: var(--accent-dim); color: var(--accent); }
+.vf-badge.bad { background: #3a1f1f; color: var(--dealerB); }
+.vf-note { margin-top: 22px; max-width: 1050px; color: var(--muted); font-size: 13px; line-height: 1.65; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 .side .ledger {
   margin: 0; font-size: 11px; color: var(--muted);

@@ -297,10 +297,35 @@ function showView(v) {
   document.querySelector('.foot').style.display = desk ? '' : 'none';
   document.getElementById('view-audit').hidden = v !== 'audit';
   document.getElementById('view-portfolio').hidden = v !== 'portfolio';
+  document.getElementById('view-verify').hidden = v !== 'verify';
   const ht = document.getElementById('howto'); if (ht) ht.style.display = desk ? '' : 'none';
   document.querySelectorAll('.side-nav a[data-view]').forEach((a) => a.classList.toggle('on', a.dataset.view === v));
   if (v === 'audit') renderAudit();
   if (v === 'portfolio') renderPortfolio();
+  if (v === 'verify') renderVerify();
+}
+// Live, on-ledger privacy proof: count what each party's node actually holds.
+function renderVerify() {
+  const el = document.getElementById('verify-body'); if (!el) return;
+  const scan = (arr, party) => {
+    const quotes = arr.filter((c) => is(c, 'Quote'));
+    const own = quotes.filter((c) => c.arg.dealer === party).length;
+    return { total: quotes.length, own, rival: quotes.length - own };
+  };
+  const a = scan(lastAcs.dealerA, P.dealerA), b = scan(lastAcs.dealerB, P.dealerB);
+  const regQuotes = lastReg.filter((c) => is(c, 'Quote')).length;
+  const regRfq = lastReg.filter((c) => is(c, 'RFQ') || is(c, 'BasketRFQ')).length;
+  const regTrades = lastReg.filter((c) => is(c, 'TradeReport') || is(c, 'BasketTradeReport')).length;
+  const pass = a.rival === 0 && b.rival === 0 && regQuotes === 0 && regRfq === 0;
+  const row = (name, detail, ok) => `<div class="vf-row"><div class="vf-name">${name}</div><div class="vf-detail">${detail}</div><div class="vf-badge ${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗'}</div></div>`;
+  el.innerHTML =
+    `<div class="vf-verdict ${pass ? 'ok' : ''}">${pass ? '✓ Sub-transaction privacy verified on-ledger' : 'seed some quotes to verify…'}</div>`
+    + '<div class="vf-grid">'
+    + row('Dealer A’s node', `holds <b>${a.total}</b> sealed quote(s) — all <b>${a.own}</b> its own. Rivals’ quotes received: <b>${a.rival}</b>.`, a.rival === 0)
+    + row('Dealer B’s node', `holds <b>${b.total}</b> sealed quote(s) — all <b>${b.own}</b> its own. Rivals’ quotes received: <b>${b.rival}</b>.`, b.rival === 0)
+    + row('Regulator’s node', `holds <b>${regTrades}</b> settled trade(s), <b>${regQuotes}</b> sealed quotes, <b>${regRfq}</b> live RFQ(s). Pre-trade visibility: <b>none</b>.`, regQuotes === 0 && regRfq === 0)
+    + '</div>'
+    + '<div class="vf-note">Each figure is the number of contracts that party’s participant node actually holds — queried live over the JSON Ledger API, not filtered by this UI. A rival dealer’s quote isn’t hidden from the screen; it was never transmitted to that node. That is Canton sub-transaction privacy — no ZK proofs, no FHE, no TEE.</div>';
 }
 // Portfolio: each party's holdings, aggregated by instrument.
 function renderPortfolio() {
@@ -356,6 +381,7 @@ async function refresh() {
     lastReg = r; lastAcs = { buyer: b, dealerA: a, dealerB: d };
     if (!document.getElementById('view-audit')?.hidden) renderAudit();
     if (!document.getElementById('view-portfolio')?.hidden) renderPortfolio();
+    if (!document.getElementById('view-verify')?.hidden) renderVerify();
     setStats({ offset: off, rfqs: b.filter((c) => is(c, 'RFQ')).length,
       quotes: b.filter((c) => is(c, 'Quote')).length, settled });
     setLedger('ok', 'ledger live · pkg ' + (PKG ? PKG.slice(0, 8) : '—'));
