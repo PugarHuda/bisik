@@ -35,7 +35,12 @@ no clean audit trail. $30B+/month still trades this way.
   (dealer can't pull collateral mid-auction), issuer-bound, RFQ-bound quotes,
   time-boxed RFQs.
 - **Web desk** — three party views of one ledger over the JSON Ledger API; watch a
-  dealer quote and the rival's column stay empty.
+  dealer quote and the rival's column stay empty. A **Portfolio** view (holdings per
+  party) and an **Audit trail** view (the regulator's settled record).
+- **"Verify privacy" — a live on-ledger proof.** One click counts what each party's
+  participant node *actually holds*: each dealer sees only its own sealed quotes
+  (rivals: 0), the regulator sees zero pre-trade. Not UI filtering — the ledger never
+  transmits it. Turns the privacy claim into something a judge can check.
 - **MCP server** — the desk as AI-native tools; an agent can *verify Canton's
   privacy itself* (`party_view(dealerA)` returns only its own quote).
 - **Autonomous market-maker agent** — a software agent that watches for RFQs it's
@@ -58,6 +63,21 @@ alternatives.
 - **Real-world applicability** — multi-dealer RFQ is the Tradeweb/Bloomberg OTC
   workflow; Tradeweb is a Canton Super Validator. Time-boxed, issuer-bound, DvP,
   regulator-auditable.
+
+## Track fit — Bisik spans all three
+Prizes are awarded to the top 3 *across all tracks*, and Bisik is deliberately built to land in each:
+- **1 · Private DeFi & Capital Markets** *(primary)* — a confidential multi-dealer RFQ / OTC
+  block-trading desk; sealed pricing, hidden counterparties, sealed positions. Exactly the
+  track's "OTC trading workflows" and "capital markets tools where pricing/counterparties
+  shouldn't be public."
+- **2 · TradeFi, RWA & Tokenized Assets** — every leg is a tokenized real-world asset:
+  US Treasuries (2Y/5Y/10Y/30Y), UK Gilts, German Bunds, French OAT, Japanese JGB,
+  corporate bonds (Apple/Microsoft/Alphabet/Tesla/JPMorgan), EM sovereigns (Mexico/Brazil),
+  settled against tokenized USD cash — atomic DvP, issuer-bound. Real instruments, real settlement.
+- **3 · Payments, Neobanking & Agentic Commerce** — an **MCP server** exposes the desk as
+  AI-native tools and an **autonomous market-maker agent** initiates commercial actions
+  (auto-quotes RFQs it's invited to, blind to rivals) — a software agent transacting safely
+  under Canton's privacy model.
 
 ## Links
 - Repository: https://github.com/PugarHuda/bisik
