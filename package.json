@@ -15,7 +15,8 @@
     "devnet:seed": "node scripts/devnet.mjs seed",
     "devnet:verify": "node scripts/devnet.mjs verify",
     "mcp": "node mcp/server.mjs",
-    "agent:demo": "node scripts/agent.mjs demo"
+    "agent:demo": "node scripts/agent.mjs demo",
+    "e2e": "node scripts/e2e.mjs"
   },
   "devDependencies": {
     "playwright": "^1.48.0"
