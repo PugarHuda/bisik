@@ -67,7 +67,10 @@ alternatives.
 - Deployed on Canton Devnet: package `5e851293…`, parties `bisik-v5-*` on the shared
   5N validator (`https://ledger-api.validator.devnet.sandbox.fivenorth.io`); the
   contracts are also visible in Seaport's contract explorer for the encode-hackathon org.
-- Demo video: _(record from `DEMO-VO.md` — read-aloud 3-min script — then paste the link here)_
+- Demo video: _(record from `DEMO-VO.md` — read-aloud 3-min script — then paste the link here)_.
+  Visual assets to narrate over: **`media/bisik-pitch.mp4`** (a 39s animated Remotion
+  pitch, `video/`) and **`media/bisik-demo-full.webm`** (a screen-driven desk B-roll).
+  Encode requires the presenter's own voice, so these are the visuals — record narration on top.
 - Deck: **`slides/bisik-deck.pdf`** (10 slides, pre-rendered) · source `slides/index.html`
 
 ## How judges try it
