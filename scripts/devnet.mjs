@@ -495,6 +495,37 @@ async function seedCases() {
   console.log('\nseed-cases done — the regulator now audits a spread of real settlement types on-chain.');
 }
 
+// A single auction where the buyer selectively DISCLOSES both competing sealed asks
+// to the regulator before awarding — so the hosted "Provable best execution" view and
+// the MCP best_execution tool show a real, green attestation on live Devnet data.
+async function seedBestExec() {
+  const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
+  const inst = 'UST7Y', qty = '1000.0';
+  const reg = await acsAs(p.regulator);
+  if (reg.some((e) => e.templateId.endsWith(':Bisik:TradeReport') && e.createArgument.instrument === inst)) {
+    console.log(`seed-bestexec: ${inst} already settled — skipping (idempotent)`); return;
+  }
+  const cash = cidOf(await submit(p.cashIssuer, createHolding(p.cashIssuer, p.buyer, 'USDC', '1500000.0')));
+  const bA = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerA, inst, qty)));
+  const bB = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerB, inst, qty)));
+  const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
+    buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
+    instrument: inst, quantity: qty, payInstrument: 'USDC', assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer,
+    deadline: '2030-01-01T00:00:00Z' } } }));
+  const q = async (dealer, price, asset) => cidOfTpl(await submit(dealer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`,
+    contractId: rfq, choice: 'SubmitQuote', choiceArgument: { dealer, price, assetCid: asset } } }), ':Bisik:Quote');
+  const qA = await q(p.dealerA, '1470000.0', bA);
+  const qB = await q(p.dealerB, '1490000.0', bB);
+  // Disclose BOTH sealed asks to the regulator (nonconsuming) BEFORE the award — this
+  // is exactly what makes best execution provable without a public order book.
+  const disclose = (qc) => submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qc,
+    choice: 'DiscloseTo', choiceArgument: { auditor: p.regulator, reason: 'best-execution audit' } } });
+  await disclose(qA); await disclose(qB);
+  await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq,
+    choice: 'Award', choiceArgument: { quoteCids: [qA, qB], cashCid: cash } } });
+  console.log(`seed-bestexec: ${inst} ${qty} — dealerA 1,470,000 wins, cleared at the Vickrey 1,490,000; both asks disclosed → best execution attested on-ledger.`);
+}
+
 const cmd = process.argv[2];
 (async () => {
   ENV = await loadEnv();
@@ -507,6 +538,7 @@ const cmd = process.argv[2];
   else if (cmd === 'settle-demo') await settleDemo();
   else if (cmd === 'seed-basket') await seedBasket();
   else if (cmd === 'seed-cases') await seedCases();
+  else if (cmd === 'seed-bestexec') await seedBestExec();
   else if (cmd === 'verify') await verify();
-  else console.log('usage: probe | upload <dar> | allocate | seed | settle-demo | seed-basket | seed-cases | verify');
+  else console.log('usage: probe | upload <dar> | allocate | seed | settle-demo | seed-basket | seed-cases | seed-bestexec | verify');
 })().catch((e) => { console.error('ERR', e.message); process.exit(1); });
