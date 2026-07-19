@@ -30,8 +30,8 @@ const OAUTH = clean(process.env.DEVNET_TOKEN_URL) ? {
 const PARTIES = (() => {
   try { return JSON.parse(process.env.DEVNET_PARTIES); } catch {}
   const s = '::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8';
-  return { buyer: 'bisik-v5-buyer' + s, dealerA: 'bisik-v5-dealerA' + s, dealerB: 'bisik-v5-dealerB' + s,
-    regulator: 'bisik-v5-regulator' + s, cashIssuer: 'bisik-v5-cashissuer' + s, bondIssuer: 'bisik-v5-bondissuer' + s };
+  return { buyer: 'bisik-v6-buyer' + s, dealerA: 'bisik-v6-dealerA' + s, dealerB: 'bisik-v6-dealerB' + s,
+    regulator: 'bisik-v6-regulator' + s, cashIssuer: 'bisik-v6-cashissuer' + s, bondIssuer: 'bisik-v6-bondissuer' + s };
 })();
 
 // The exact read endpoints the desk needs. Anything else — above all the write

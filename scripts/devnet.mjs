@@ -1,7 +1,7 @@
 // Bisik DevNet deploy/seed against the shared 5N hackathon validator.
 // Reads scripts/.env.devnet (gitignored). Node >= 20.
 //   node scripts/devnet.mjs probe
-//   node scripts/devnet.mjs upload .daml/dist/bisik-0.5.0.dar
+//   node scripts/devnet.mjs upload .daml/dist/bisik-otc-0.6.0.dar
 //   node scripts/devnet.mjs allocate
 //   node scripts/devnet.mjs seed
 import { readFile, writeFile } from 'node:fs/promises';
@@ -101,8 +101,8 @@ const USER = '6';
 // v2 party set — isolates this deployment's (new package) contracts from any
 // earlier ones on the shared validator, so party queries return only our data.
 const HINTS = {
-  buyer: 'bisik-v5-buyer', dealerA: 'bisik-v5-dealerA', dealerB: 'bisik-v5-dealerB',
-  regulator: 'bisik-v5-regulator', cashIssuer: 'bisik-v5-cashissuer', bondIssuer: 'bisik-v5-bondissuer',
+  buyer: 'bisik-v6-buyer', dealerA: 'bisik-v6-dealerA', dealerB: 'bisik-v6-dealerB',
+  regulator: 'bisik-v6-regulator', cashIssuer: 'bisik-v6-cashissuer', bondIssuer: 'bisik-v6-bondissuer',
 };
 
 async function namespace() {
@@ -149,9 +149,9 @@ async function allocate() {
   console.log('wrote scripts/devnet.parties.json');
 }
 
-// Main package id of .daml/dist/bisik-0.5.0.dar. Regenerate after a model change
-// with: daml damlc inspect-dar --json .daml/dist/bisik-0.5.0.dar  (or set BISIK_PKG).
-const PKG = process.env.BISIK_PKG ?? '5e85129395a60c395bc21f3a71279e73fa060d26a76299daa79a48a458da9702';
+// Main package id of .daml/dist/bisik-otc-0.6.0.dar. Regenerate after a model change
+// with: daml damlc inspect-dar --json .daml/dist/bisik-otc-0.6.0.dar  (or set BISIK_PKG).
+const PKG = process.env.BISIK_PKG ?? 'b0058535e188b74314740b6d3b1da1d59df999cdd41dac37ef61da23bcd15a30';
 let CID = 0;
 async function submit(actAs, command) {
   const commandId = `bisik-${Date.now()}-${CID++}`; // stable across retries → dedup on the ledger
@@ -339,7 +339,7 @@ async function seedCases() {
     templateId: `${PKG}:Bisik:RFQ`, contractId: rfq, choice: 'SubmitQuote', choiceArgument: { dealer, price, assetCid } } }), ':Bisik:Quote');
   const onQuote = (qCid, choice, arg) => submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qCid, choice, choiceArgument: arg } });
   // A third dealer for the 3-dealer Vickrey cases (idempotent allocation).
-  const dealerC = await allocateOne('bisik-v5-dealerC'); await grant(dealerC);
+  const dealerC = await allocateOne('bisik-v6-dealerC'); await grant(dealerC);
   // Helpers: run a full 2- or 3-dealer Vickrey and settle it.
   const vickrey2 = async (inst, qty, pA, pB, cashAmt) => {
     const c = await cash(cashAmt); const bA = await bond(p.dealerA, inst, qty); const bB = await bond(p.dealerB, inst, qty);
@@ -500,7 +500,7 @@ const cmd = process.argv[2];
   ENV = await loadEnv();
   if (cmd === 'probe') await probe();
   else if (cmd === 'cleanup') await cleanup();
-  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-0.5.0.dar');
+  else if (cmd === 'upload') await upload(process.argv[3] ?? '.daml/dist/bisik-otc-0.6.0.dar');
   else if (cmd === 'allocate-one') console.log(await allocateOne(process.argv[3] ?? 'bisik-probe-1'));
   else if (cmd === 'allocate') await allocate();
   else if (cmd === 'seed') await seed();

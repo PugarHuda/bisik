@@ -7,4 +7,4 @@ dependencies:
   - daml-stdlib
   - daml-script
 data-dependencies:
-  - ../.daml/dist/bisik-0.5.0.dar
+  - ../.daml/dist/bisik-otc-0.6.0.dar

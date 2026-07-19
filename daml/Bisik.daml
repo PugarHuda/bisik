@@ -334,7 +334,19 @@ template Quote
         reason : Text
       controller buyer
       do create QuoteDisclosure with
-           buyer; auditor; dealer; instrument; quantity; price; reason
+           discloser = buyer; buyer; auditor; dealer; instrument; quantity; price; reason
+
+    -- Symmetric: the DEALER can reveal its own sealed quote to a chosen auditor —
+    -- e.g. to prove in a dispute that it quoted a fair price, without exposing it to
+    -- rival dealers or the public. Either side of the trade controls its own
+    -- disclosure, per contract, at any time.
+    nonconsuming choice DealerDiscloseTo : ContractId QuoteDisclosure
+      with
+        auditor : Party
+        reason : Text
+      controller dealer
+      do create QuoteDisclosure with
+           discloser = dealer; buyer; auditor; dealer; instrument; quantity; price; reason
 
 -- Post-trade transparency: the regulator sees the executed trade - and only
 -- the executed trade. Pre-trade flow (RFQ, losing quotes) stays dark to them.
@@ -356,6 +368,7 @@ template TradeReport
 -- control, per contract, at any time — not all-or-nothing transparency.
 template QuoteDisclosure
   with
+    discloser : Party  -- the party that chose to reveal this quote (buyer or dealer)
     buyer : Party
     auditor : Party
     dealer : Party
@@ -364,7 +377,7 @@ template QuoteDisclosure
     price : Decimal
     reason : Text
   where
-    signatory buyer
+    signatory discloser
     observer auditor
 
 -- ===========================================================================

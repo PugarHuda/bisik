@@ -1,10 +1,12 @@
 sdk-version: 3.4.11
-name: bisik
-version: 0.5.0
+name: bisik-otc
+version: 0.6.0
 source: daml
-# The CIP-0056-aligned Token interface is implemented in the same package as its
-# Holding template; Daml's smart-contract-upgrade check flags in-package interface
-# instances by default. This ships as a fresh version, so allow it.
+# Fresh package lineage (was `bisik` 0.5.0). The CIP-0056-aligned Token interface is
+# implemented in the same package as its Holding template, which changes the interface
+# package-id per version; Daml's smart-contract-upgrade check therefore cannot upgrade
+# `bisik` 0.5.0 in place (NOT_VALID_UPGRADE_PACKAGE). A new package name sidesteps the
+# upgrade lineage entirely — the module stays `Bisik`, so template ids are unchanged.
 build-options:
   - -Wno-upgrade-interfaces
 dependencies:
