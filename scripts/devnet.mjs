@@ -556,24 +556,29 @@ async function seedBestExec() {
     const qA = await q(p.dealerA, pA, bA);
     const qB = await q(p.dealerB, pB, bB);
     await disclose(qA); await disclose(qB);
-    return { cash, qA, qB };
+    return { cash, qA, qB, rfq };
   };
   const onQuote = (qc, choice, arg) => submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qc, choice, choiceArgument: arg } });
+  // SettleQuote/AcceptPartial act on the Quote, not the RFQ — so the RFQ itself would
+  // linger empty. Cancel it (buyer is sole signatory) so no orphan open RFQ is left.
+  const cancelRfq = (rfq) => submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq, choice: 'CancelRFQ', choiceArgument: {} } });
   // Direct bilateral OTC: the buyer HITS the cheaper disclosed dealer at its ask
   // (SettleQuote). The loser's quote is withdrawn so no escrow is left stranded.
   const directOtc = async (inst, qty, pA, pB, cashAmt) => {
     if (done.has(inst)) { console.log(`· ${inst} already settled — skip`); return; }
-    const { cash, qA, qB } = await twoQuotesDisclosed(inst, qty, pA, pB, cashAmt);
+    const { cash, qA, qB, rfq } = await twoQuotesDisclosed(inst, qty, pA, pB, cashAmt);
     await onQuote(qA, 'SettleQuote', { cashCid: cash, clearingPrice: pA });
     await submit(p.dealerB, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qB, choice: 'WithdrawQuote', choiceArgument: {} } });
+    await cancelRfq(rfq);
     console.log(`· ${inst} ${qty} — direct OTC: hit dealerA ${pA} (beat disclosed dealerB ${pB}) ✓ attested`);
   };
   // Partial direct fill: the buyer takes `fill` of the cheaper lot at the prorated ask.
   const partial = async (inst, qty, pA, pB, fill, cashAmt) => {
     if (done.has(inst)) { console.log(`· ${inst} already settled — skip`); return; }
-    const { cash, qA, qB } = await twoQuotesDisclosed(inst, qty, pA, pB, cashAmt);
+    const { cash, qA, qB, rfq } = await twoQuotesDisclosed(inst, qty, pA, pB, cashAmt);
     await onQuote(qA, 'AcceptPartial', { cashCid: cash, fillQuantity: fill });
     await submit(p.dealerB, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qB, choice: 'WithdrawQuote', choiceArgument: {} } });
+    await cancelRfq(rfq);
     console.log(`· ${inst} ${fill}/${qty} — partial fill of dealerA ${pA} (beat disclosed dealerB ${pB}) ✓ attested`);
   };
   // Vickrey rail — winner ask < runner-up = clearing price.
@@ -592,6 +597,23 @@ async function seedBestExec() {
   console.log('seed-bestexec done — best execution proven across Vickrey, direct-OTC, and partial-fill rails.');
 }
 
+// Cancel any quote-less open RFQ the buyer holds — e.g. an orphan left when a
+// direct-OTC / partial settle consumed the quotes but not the RFQ. Idempotent.
+async function tidy() {
+  const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
+  const ev = await acsAs(p.buyer);
+  const rfqs = ev.filter((e) => e.templateId.endsWith(':Bisik:RFQ'));
+  const quotedRfqIds = new Set(ev.filter((e) => e.templateId.endsWith(':Bisik:Quote'))
+    .map((q) => q.createArgument.rfqId).filter(Boolean));
+  const orphans = rfqs.filter((r) => !quotedRfqIds.has(r.contractId));
+  if (!orphans.length) { console.log('tidy: no orphan RFQs.'); return; }
+  for (const r of orphans) {
+    await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: r.contractId, choice: 'CancelRFQ', choiceArgument: {} } });
+    console.log(`· cancelled orphan RFQ ${r.createArgument.instrument} qty ${r.createArgument.quantity}`);
+  }
+  console.log(`tidy: cancelled ${orphans.length} orphan RFQ(s).`);
+}
+
 const cmd = process.argv[2];
 (async () => {
   ENV = await loadEnv();
@@ -605,6 +627,7 @@ const cmd = process.argv[2];
   else if (cmd === 'seed-basket') await seedBasket();
   else if (cmd === 'seed-cases') await seedCases();
   else if (cmd === 'seed-bestexec') await seedBestExec();
+  else if (cmd === 'tidy') await tidy();
   else if (cmd === 'verify') await verify();
-  else console.log('usage: probe | upload <dar> | allocate | seed | settle-demo | seed-basket | seed-cases | seed-bestexec | verify');
+  else console.log('usage: probe | upload <dar> | allocate | seed | settle-demo | seed-basket | seed-cases | seed-bestexec | tidy | verify');
 })().catch((e) => { console.error('ERR', e.message); process.exit(1); });
