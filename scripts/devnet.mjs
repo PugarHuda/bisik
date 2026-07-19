@@ -522,16 +522,56 @@ async function seedBestExec() {
     await disclose(qA); await disclose(qB); // both sealed asks revealed to the regulator BEFORE award
     await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq,
       choice: 'Award', choiceArgument: { quoteCids: [qA, qB], cashCid: cash } } });
-    console.log(`· ${inst} ${qty} — dealerA ${pA} wins, cleared at Vickrey ${pB}; both asks disclosed ✓ attested`);
+    console.log(`· ${inst} ${qty} — Vickrey: dealerA ${pA} wins, cleared at ${pB}; both asks disclosed ✓ attested`);
   };
-  // Fresh institutional instruments (winner ask < runner-up = clearing price).
+  // Shared setup for the bilateral rails: two disclosed sealed asks (A cheaper).
+  const twoQuotesDisclosed = async (inst, qty, pA, pB, cashAmt) => {
+    const cash = cidOf(await submit(p.cashIssuer, createHolding(p.cashIssuer, p.buyer, 'USDC', cashAmt)));
+    const bA = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerA, inst, qty)));
+    const bB = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerB, inst, qty)));
+    const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
+      buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
+      instrument: inst, quantity: qty, payInstrument: 'USDC', assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer,
+      deadline: '2030-01-01T00:00:00Z' } } }));
+    const q = async (dealer, price, asset) => cidOfTpl(await submit(dealer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`,
+      contractId: rfq, choice: 'SubmitQuote', choiceArgument: { dealer, price, assetCid: asset } } }), ':Bisik:Quote');
+    const qA = await q(p.dealerA, pA, bA);
+    const qB = await q(p.dealerB, pB, bB);
+    await disclose(qA); await disclose(qB);
+    return { cash, qA, qB };
+  };
+  const onQuote = (qc, choice, arg) => submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qc, choice, choiceArgument: arg } });
+  // Direct bilateral OTC: the buyer HITS the cheaper disclosed dealer at its ask
+  // (SettleQuote). The loser's quote is withdrawn so no escrow is left stranded.
+  const directOtc = async (inst, qty, pA, pB, cashAmt) => {
+    if (done.has(inst)) { console.log(`· ${inst} already settled — skip`); return; }
+    const { cash, qA, qB } = await twoQuotesDisclosed(inst, qty, pA, pB, cashAmt);
+    await onQuote(qA, 'SettleQuote', { cashCid: cash, clearingPrice: pA });
+    await submit(p.dealerB, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qB, choice: 'WithdrawQuote', choiceArgument: {} } });
+    console.log(`· ${inst} ${qty} — direct OTC: hit dealerA ${pA} (beat disclosed dealerB ${pB}) ✓ attested`);
+  };
+  // Partial direct fill: the buyer takes `fill` of the cheaper lot at the prorated ask.
+  const partial = async (inst, qty, pA, pB, fill, cashAmt) => {
+    if (done.has(inst)) { console.log(`· ${inst} already settled — skip`); return; }
+    const { cash, qA, qB } = await twoQuotesDisclosed(inst, qty, pA, pB, cashAmt);
+    await onQuote(qA, 'AcceptPartial', { cashCid: cash, fillQuantity: fill });
+    await submit(p.dealerB, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qB, choice: 'WithdrawQuote', choiceArgument: {} } });
+    console.log(`· ${inst} ${fill}/${qty} — partial fill of dealerA ${pA} (beat disclosed dealerB ${pB}) ✓ attested`);
+  };
+  // Vickrey rail — winner ask < runner-up = clearing price.
   await auction('UST7Y', '1000.0', '1470000.0', '1490000.0', '1500000.0');
   await auction('UST3Y', '2000.0', '1960000.0', '1980000.0', '2000000.0');
   await auction('GILT7Y', '1000.0', '1180000.0', '1195000.0', '1200000.0');
   await auction('BUND7Y', '1500.0', '1465000.0', '1485000.0', '1500000.0');
   await auction('JPM30', '500.0', '505000.0', '512000.0', '520000.0');
   await auction('OAT7Y', '800.0', '815000.0', '825000.0', '830000.0');
-  console.log('seed-bestexec done — the regulator can now prove best execution on-ledger for each.');
+  // Direct-OTC rail — buyer hits the cheaper disclosed ask.
+  await directOtc('GILT20Y', '1000.0', '1240000.0', '1255000.0', '1300000.0');
+  await directOtc('BTP10Y', '1500.0', '1440000.0', '1460000.0', '1500000.0');
+  // Partial rail — buyer takes part of the cheaper disclosed lot.
+  await partial('UST20Y', '2000.0', '1900000.0', '1930000.0', '800.0', '2000000.0');
+  await partial('SPGB10Y', '1000.0', '1120000.0', '1140000.0', '600.0', '1200000.0');
+  console.log('seed-bestexec done — best execution proven across Vickrey, direct-OTC, and partial-fill rails.');
 }
 
 const cmd = process.argv[2];
