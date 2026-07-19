@@ -44,13 +44,22 @@ const ALLOW = [
   { m: 'POST', p: 'v2/state/active-contracts' }, // a POST, but a read (query)
 ];
 
+// Bound every upstream call: a wedged ledger/IdP must not hold the serverless
+// invocation open until the platform ceiling.
+async function fetchT(url, opts = {}, ms = 10000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+  finally { clearTimeout(timer); }
+}
+
 let tok = null, tokExp = 0;
 async function token() {
   if (!OAUTH) return null;
   if (tok && Date.now() < tokExp) return tok;
   const body = new URLSearchParams({ grant_type: 'client_credentials', client_id: OAUTH.clientId,
     client_secret: OAUTH.clientSecret, audience: OAUTH.audience, scope: OAUTH.scope });
-  const r = await fetch(OAUTH.url, { method: 'POST',
+  const r = await fetchT(OAUTH.url, { method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
   const j = await r.json();
   if (!j.access_token) throw new Error('token fetch failed');
@@ -87,7 +96,7 @@ export default async function handler(req, res) {
 
   try {
     const t = await token();
-    const r = await fetch(`${LEDGER}/${path}`, {
+    const r = await fetchT(`${LEDGER}/${path}`, {
       method: req.method,
       headers: { 'content-type': 'application/json', ...(t ? { authorization: `Bearer ${t}` } : {}) },
       body: req.method === 'POST' ? JSON.stringify(req.body ?? {}) : undefined,

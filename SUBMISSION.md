@@ -63,7 +63,7 @@ no clean audit trail. $30B+/month still trades this way.
   (`best_execution` attests each settled trade against the disclosed asks).
 - **Autonomous market-maker agent** — a software agent that watches for RFQs it's
   invited to and auto-quotes, blind to its rivals.
-- **Every model choice is drivable in the UI.** **22 Daml behavioural scripts are
+- **Every model choice is drivable in the UI.** **27 Daml behavioural scripts are
   CI-gated** (build + `daml test` on every push); on top of them, **three Playwright
   suites click the real desk end-to-end** (`e2e` 20/20 · `e2e:actions` 16/16 ·
   `e2e:bestexec` 8/8, run locally against a live sandbox + browser). Deployed live on
@@ -77,7 +77,7 @@ ledger's data model. This is the case *for* Canton, made by someone who tried th
 alternatives.
 
 ## How it maps to the judging criteria
-- **Technical execution** — clean two-package Daml; 22 behavioural scripts (privacy, Vickrey 1/2/3,
+- **Technical execution** — clean two-package Daml; 27 behavioural scripts (privacy, Vickrey 1/2/3,
   escrow guard, issuer binding, cross-RFQ, deadline, one-quote-per-dealer, partial fills both rails, baskets, token interface, symmetric selective disclosure) + three Playwright suites clicking every choice end-to-end; CI; deployed + verified on Devnet.
 - **Originality** — provable best execution with no public order book; an agent that
   verifies the ledger's privacy for itself; a desk built five times that finally needed
@@ -137,7 +137,7 @@ leaked instead (zero, here).
 
 **2 · Full interactive (local, one command).**
 ```bash
-daml build --all && cd test && daml test   # 22 scripts green (incl. privacy + Vickrey + a settled trade)
+daml build --all && cd test && daml test   # 27 scripts green (incl. privacy + Vickrey + a settled trade)
 npm run demo                                # sandbox → seed → desk at http://localhost:8080
 #   → open http://localhost:8080, create an RFQ, quote as both dealers, Award (Vickrey)
 npm run agent:demo                          # the autonomous market-maker quotes an RFQ

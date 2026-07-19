@@ -24,9 +24,10 @@ marked ✅ were fixed in this pass; ⚠️ are accepted/known scope with rationa
   it. Left open on-ledger — a real desk may want multi-quote. Upgrade path: a
   per-(rfq,dealer) key if one-quote-per-dealer is desired.
 - ⚠️ **Buyer can bypass Vickrey by exercising `SettleQuote` directly** at any
-  `clearingPrice >= dealer ask`. This only lets the buyer *overpay* (never
-  underpay the dealer — guarded by `clearingPrice >= price`), so it harms no
-  counterparty. `Award` is the intended fair path.
+  `clearingPrice >= dealer ask`. The dealer is never paid **below its own ask**
+  (guarded by `clearingPrice >= price`); the buyer can, however, curate the awarded
+  quote set to clear at the winner's ask rather than the true second price — i.e.
+  suppress the Vickrey uplift, not underpay the dealer. `Award` is the fair path.
 - ⚠️ **Ignored quotes keep a dealer's asset escrowed.** If the buyer never
   awards/cancels, a quoting dealer's bond stays locked. Mitigated: `WithdrawQuote`
   lets the dealer reclaim it unilaterally.
@@ -96,7 +97,8 @@ the deploy tooling. Each finding below was re-verified before acting.
   sealed quotes, the buyer alone runs the auction: they choose which quotes to
   include in `Award` and thus the clearing price, and could settle a single quote
   at first price. The contract guarantees no dealer is paid **below** their ask
-  and DvP atomicity — a buyer can only ever overpay. Forcing true second-price /
+  and DvP atomicity; the buyer can suppress the Vickrey uplift (clear at the
+  winner's own ask) but never underpay a dealer. Forcing true second-price /
   full-set inclusion needs a trusted third-party auctioneer or MPC. Documented in
   README "Honest scope"; the earlier "Vickrey pricing rule is contract-enforced"
   wording was an overclaim and has been corrected.
@@ -217,7 +219,7 @@ disclosure (`DealerDiscloseTo`), partial-Vickrey (`AwardPartial`), and every oth
 write choice deploy on-ledger. All are surfaced in the desk UI and driven end-to-end
 by Playwright — three suites clicking every choice the model exposes (`npm run e2e`
 20/20 + `npm run e2e:actions` 16/16 + `npm run e2e:bestexec` 8/8). **What CI gates:**
-the 22 Daml behavioural scripts (`daml test`) + JS syntax + the read-only proxy
+the 27 Daml behavioural scripts (`daml test`) + JS syntax + the read-only proxy
 self-check run on every push; the Playwright suites need a live sandbox + browser, so
 they're run locally (not in CI). The rich deployment (settled trades across
 Treasuries/Gilts/Bunds/JGB/OAT/corporates/EM + baskets, all read views) stays live.

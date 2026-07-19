@@ -355,11 +355,20 @@ function renderBestExec() {
     const unit = Number(d.arg.price) / Number(d.arg.quantity);
     (byInst[d.arg.instrument] ??= []).push({ dealer: d.arg.dealer, unit, price: Number(d.arg.price) });
   }
+  // Disclosures carry no auction/RFQ id, so they can only be matched to a settlement
+  // by instrument. If one instrument was settled more than once, the disclosed asks
+  // can't be attributed to a specific trade — don't attest against the pooled set.
+  const instCount = {};
+  for (const r of reports) instCount[r.arg.instrument] = (instCount[r.arg.instrument] ?? 0) + 1;
   const cards = reports.map((r) => {
     const inst = r.arg.instrument;
     const clrUnit = Number(r.arg.clearingPrice) / Number(r.arg.quantity);
     const asks = (byInst[inst] ?? []).slice().sort((a, b) => a.unit - b.unit);
     const head = `<b>${esc(inst)}</b> · ${fmt(r.arg.quantity)} @ ${fmt(r.arg.clearingPrice)} <span class="hint">(${fmt(clrUnit)}/unit)</span>`;
+    if (asks.length && instCount[inst] > 1) {
+      return `<div class="be-card none"><div class="be-head">${head}<span class="be-verdict warn">ambiguous</span></div>
+        <div class="be-note">This instrument was settled more than once; disclosed asks carry no per-auction link, so they can't be attributed to a single trade. Best execution is attested only when an instrument has one settlement.</div></div>`;
+    }
     if (!asks.length) {
       return `<div class="be-card none"><div class="be-head">${head}</div>
         <div class="be-note">No competing asks disclosed to the regulator for this instrument yet — the buyer or a dealer can reveal them on demand (⚖ Disclose to regulator) to make best execution provable, without ever showing a rival.</div></div>`;

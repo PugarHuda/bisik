@@ -179,10 +179,15 @@ async function handle(name, args) {
       const unit = Number(d.arg.price) / Number(d.arg.quantity);
       (byInst[d.arg.instrument] ??= []).push({ dealer: String(d.arg.dealer).split('::')[0], unit, price: Number(d.arg.price) });
     }
+    // Disclosures carry no per-auction id, so they match a settlement only by
+    // instrument; if an instrument settled more than once, don't attest the pooled set.
+    const instCount = {};
+    for (const r of reports) instCount[r.arg.instrument] = (instCount[r.arg.instrument] ?? 0) + 1;
     const lines = reports.map((r) => {
       const inst = r.arg.instrument;
       const clrUnit = Number(r.arg.clearingPrice) / Number(r.arg.quantity);
       const asks = (byInst[inst] ?? []).slice().sort((a, b) => a.unit - b.unit);
+      if (asks.length && instCount[inst] > 1) return `• ${inst} × ${r.arg.quantity} @ ${r.arg.clearingPrice} — ambiguous: instrument settled more than once; disclosed asks can't be tied to one trade.`;
       if (!asks.length) return `• ${inst} × ${r.arg.quantity} @ ${r.arg.clearingPrice} — no competing asks disclosed to the regulator; best execution not yet provable (reveal them on demand).`;
       const winner = asks[0];
       const ok = clrUnit + 1e-9 >= winner.unit && asks.every((x) => x === winner || x.unit + 1e-9 >= clrUnit);
