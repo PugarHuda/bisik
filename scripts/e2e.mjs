@@ -52,6 +52,17 @@ const check = (name, cond, detail = '') => {
   const bq = await txt('#buyer-quotes');
   check('buyer sees BOTH sealed quotes', bq.includes('4,210,000') && bq.includes('4,250,000'));
 
+  console.log('── Case 3b · Symmetric disclosure — the DEALER reveals its OWN quote (v6) ──');
+  const ddBtns = await p.locator('#body-dealerA button[data-dealerdisclose]').count();
+  check('dealer has a disclose-own-quote control', ddBtns >= 1);
+  if (ddBtns) {
+    await p.locator('#body-dealerA button[data-dealerdisclose]').first().click({ force: true });
+    await wait(2500);
+    await setView('audit');
+    check('regulator sees the dealer-disclosed quote (fair-pricing defence)', (await txt('#audit-table')).includes('fair-pricing defence'));
+    await setDesk();
+  }
+
   console.log('── Case 4 · Selective disclosure — reveal one quote to the regulator ──');
   const discBtns = await p.locator('button[data-disclose]').count();
   check('a "disclose to regulator" control exists per quote', discBtns >= 1);

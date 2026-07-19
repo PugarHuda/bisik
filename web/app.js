@@ -239,7 +239,10 @@ function renderDealer(role, mine) {
 
   const mineCards = myQuotes.map((q) => `
       <div class="card"><div class="row"><span>your quote</span><span class="price">${fmt(q.arg.price)}</span></div>
-      <div class="sub">${esc(q.arg.instrument)} · ${fmt(q.arg.quantity)} · sealed to buyer only</div></div>`).join('');
+      <div class="sub">${esc(q.arg.instrument)} · ${fmt(q.arg.quantity)} · sealed to buyer only</div>
+      ${P.regulator ? `<button class="ghost disclose" style="margin-top:8px" data-dealerdisclose="${q.cid}" data-tpl="${esc(q.tpl)}" data-role="${role}">⚖ Disclose to regulator (fair-pricing defence)</button>` : ''}
+      <button class="ghost" style="margin-top:6px" data-withdraw="${q.cid}" data-tpl="${esc(q.tpl)}" data-role="${role}">Withdraw quote (release escrow)</button>
+      </div>`).join('');
 
   // ---- multi-instrument baskets: a dealer quotes ONE price for the whole package ----
   const basketRfqs = mine.filter((c) => is(c, 'BasketRFQ'));
@@ -355,11 +358,12 @@ function renderAudit() {
     : '<div class="audit-empty">No settled trades yet — the regulator sees nothing pre-trade.</div>';
   // Selective disclosures: sealed quotes the buyer revealed to the regulator on demand.
   const disc = lastReg.filter((c) => is(c, 'QuoteDisclosure'));
+  const who = (d) => d.arg.discloser === P.buyer ? 'buyer' : dealerLabel(d.arg.dealer);
   const disclosures = disc.length
     ? '<h3 style="margin-top:34px;font-size:15px;color:var(--ink)">Selectively disclosed quotes '
-      + '<span class="hint" style="font-weight:400">— sealed quotes the buyer chose to reveal to the regulator on demand (never public, never sent to rivals)</span></h3>'
-      + '<table class="audit"><thead><tr><th>Dealer</th><th>Instrument</th><th>Quantity</th><th>Quoted price</th><th>Reason</th></tr></thead><tbody>'
-      + disc.map((d) => `<tr><td>${dealerLabel(d.arg.dealer)}</td><td>${esc(d.arg.instrument)}</td><td class="num">${fmt(d.arg.quantity)}</td><td class="num">${fmt(d.arg.price)}</td><td class="mode">${esc(d.arg.reason)}</td></tr>`).join('')
+      + '<span class="hint" style="font-weight:400">— sealed quotes the buyer OR the dealer chose to reveal to the regulator on demand (never public, never sent to rivals)</span></h3>'
+      + '<table class="audit"><thead><tr><th>Disclosed by</th><th>Dealer</th><th>Instrument</th><th>Quantity</th><th>Quoted price</th><th>Reason</th></tr></thead><tbody>'
+      + disc.map((d) => `<tr><td>${who(d)}</td><td>${dealerLabel(d.arg.dealer)}</td><td>${esc(d.arg.instrument)}</td><td class="num">${fmt(d.arg.quantity)}</td><td class="num">${fmt(d.arg.price)}</td><td class="mode">${esc(d.arg.reason)}</td></tr>`).join('')
       + '</tbody></table>'
     : '';
   el.innerHTML = trades + disclosures;
@@ -491,6 +495,33 @@ async function discloseQuote(quoteCid, tpl, btn) {
   });
 }
 
+// Symmetric selective disclosure: the DEALER reveals its OWN sealed quote to the
+// regulator — a fair-pricing / dispute defence — without exposing it to rivals or
+// the public. Either side of the trade controls its own disclosure (Canton v6).
+async function dealerDiscloseQuote(role, quoteCid, tpl, btn) {
+  if (READONLY) return toast(RO_MSG);
+  await guarded(btn, async () => {
+    try {
+      await submit(P[role], { ExerciseCommand: { templateId: tpl, contractId: quoteCid, choice: 'DealerDiscloseTo',
+        choiceArgument: { auditor: P.regulator, reason: 'fair-pricing defence' } } });
+      toast('Dealer disclosed its own quote to the regulator — rivals still can’t see it'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+// Dealer walks away from a live (un-awarded) quote: WithdrawQuote archives it and
+// returns the escrowed bond to the dealer. Without this, a losing/stale quote's
+// collateral stays locked forever.
+async function withdrawQuote(role, quoteCid, tpl, btn) {
+  if (READONLY) return toast(RO_MSG);
+  await guarded(btn, async () => {
+    try {
+      await submit(P[role], { ExerciseCommand: { templateId: tpl, contractId: quoteCid, choice: 'WithdrawQuote', choiceArgument: {} } });
+      toast('Quote withdrawn — escrow released back to the dealer'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
 // ---- multi-instrument baskets ----
 const basketLegs = () => [
   { instrument: 'TBOND30', quantity: '1000.0', assetIssuer: CFG_PARTIES.bondIssuer ?? null },
@@ -581,6 +612,16 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-disclose]');
   if (!b) return;
   discloseQuote(b.dataset.disclose, b.dataset.tpl, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-dealerdisclose]');
+  if (!b) return;
+  dealerDiscloseQuote(b.dataset.role, b.dataset.dealerdisclose, b.dataset.tpl, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-withdraw]');
+  if (!b) return;
+  withdrawQuote(b.dataset.role, b.dataset.withdraw, b.dataset.tpl, b);
 });
 // Sidebar view switcher: swap the main area between the 3-column desk and the
 // dedicated audit-trail page (external links carry no data-view and navigate away).
