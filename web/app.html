@@ -66,6 +66,11 @@
           <h3>Quotes received <span class="hint">(sealed to you)</span></h3>
           <div id="buyer-quotes" class="list"><div class="empty">No quotes yet.</div></div>
           <button id="btn-award" class="award" disabled>Award — pay 2nd price (Vickrey)</button>
+          <div class="form" id="award-partial-row" style="margin-top:8px;display:none">
+            <label>Partial award <input id="award-fill" type="number" min="0" /></label>
+            <button id="btn-award-partial" class="ghost" disabled>Award partial — Vickrey 2nd price, prorated</button>
+          </div>
+          <button id="btn-cancel-rfq" class="ghost" style="margin-top:8px;display:none">Cancel this RFQ</button>
         </div>
         <div class="block" id="nav-basket">
           <h3>Basket RFQ <span class="hint">(multi-instrument)</span></h3>

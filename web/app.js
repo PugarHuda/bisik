@@ -8,7 +8,8 @@ let PKG = null;                // discovered model package id (for fresh creates
 let USER_ID = 'participant_admin';
 let CFG_PARTIES = {};          // issuer party ids from server config (DevNet)
 const P = {};                  // role -> full party id
-let awardable = null;          // { rfqCid, tpl, quoteCids, cashCid } when buyer can award
+let awardable = null;          // { rfqCid, tpl, quoteCids, cashCid, qty } when buyer can award
+let cancelableRfq = null;      // { cid, tpl } of the buyer's live RFQ (buyer can cancel it)
 let READONLY = false;          // hosted public demo: the server allows reads only
 
 const api = async (path, method = 'GET', body) => {
@@ -180,14 +181,32 @@ function renderBuyer(mine) {
           <button class="ghost" data-partial="${c.cid}" data-tpl="${esc(c.tpl)}" data-cash="${cashFor.cid}">Fill partial (prorated)</button>
         </div>` : ''}
         ${P.regulator ? `<button class="ghost disclose" style="margin-top:6px" data-disclose="${c.cid}" data-tpl="${esc(c.tpl)}">⚖ Disclose to regulator (best-execution audit)</button>` : ''}
+        <button class="ghost" style="margin-top:6px" data-reject="${c.cid}" data-tpl="${esc(c.tpl)}">Reject quote (return escrow)</button>
       </div>`;
     }).join('');
 
     const cash = mine.find((c) => is(c, 'Holding') && c.arg.owner === P.buyer
       && c.arg.instrument === rfq.arg.payInstrument && Number(c.arg.amount) >= clearing);
-    if (rfq && cash) awardable = { rfqCid: rfq.cid, tpl: rfq.tpl, quoteCids: sorted.map((c) => c.cid), cashCid: cash.cid };
+    if (rfq && cash) awardable = { rfqCid: rfq.cid, tpl: rfq.tpl, quoteCids: sorted.map((c) => c.cid), cashCid: cash.cid, qty: Number(rfq.arg.quantity) };
   }
   document.getElementById('btn-award').disabled = !awardable;
+
+  // Partial-Vickrey: same sealed auction, but the buyer takes only part of the
+  // winning lot at the 2nd price, prorated. Shown whenever a full award is possible.
+  const pRow = document.getElementById('award-partial-row');
+  const pBtn = document.getElementById('btn-award-partial');
+  const fillIn = document.getElementById('award-fill');
+  if (awardable) {
+    pRow.style.display = ''; pBtn.disabled = false; fillIn.max = awardable.qty;
+    if (document.activeElement !== fillIn && (!fillIn.value || Number(fillIn.value) > awardable.qty)) fillIn.value = awardable.qty;
+  } else { pRow.style.display = 'none'; pBtn.disabled = true; }
+
+  // Cancel own RFQ — the buyer is its sole signatory, so it can archive a live RFQ
+  // at any time (e.g. a stray or mistaken one). Any escrowed quotes stay until the
+  // dealer withdraws them.
+  const cBtn = document.getElementById('btn-cancel-rfq');
+  if (rfq) { cBtn.style.display = ''; cancelableRfq = { cid: rfq.cid, tpl: rfq.tpl }; }
+  else { cBtn.style.display = 'none'; cancelableRfq = null; }
 }
 
 // Buyer's basket lane: show the open basket RFQ and any sealed basket quotes,
@@ -207,6 +226,7 @@ function renderBasketBuyer(mine) {
       <div class="row"><span>${dealerLabel(c.arg.dealer)}</span><span class="price">${fmt(c.arg.price)} ${esc(c.arg.payInstrument)}</span></div>
       <div class="sub">${legs}</div>
       ${cash ? `<button class="ghost" style="margin-top:6px" data-basketsettle="${c.cid}" data-tpl="${esc(c.tpl)}" data-cash="${cash.cid}">Accept basket · atomic multi-leg DvP</button>` : ''}
+      <button class="ghost" style="margin-top:6px" data-basketreject="${c.cid}" data-tpl="${esc(c.tpl)}">Reject basket (return all legs)</button>
     </div>`;
   }).join('');
 }
@@ -264,8 +284,16 @@ function renderDealer(role, mine) {
             </div>` : '<div class="sub">no matching assets for all legs</div>'}
       </div>`;
   }).join('');
+  const myBasketCards = myBasketQuotes.map((q) => {
+    const legTxt = q.arg.legs.map((l) => `${esc(l.instrument)} ×${fmt(l.quantity)}`).join(' + ');
+    return `<div class="card"><div class="row"><span>your basket quote</span><span class="price">${fmt(q.arg.price)}</span></div>
+      <div class="sub">${legTxt} · sealed to buyer only</div>
+      <button class="ghost" style="margin-top:8px" data-basketwithdraw="${q.cid}" data-tpl="${esc(q.tpl)}" data-role="${role}">Withdraw basket quote (release all legs)</button></div>`;
+  }).join('');
   const basketBlock = (basketRfqs.length || myBasketQuotes.length)
-    ? `<div class="block"><h3>Incoming baskets <span class="hint">(multi-leg)</span></h3><div class="list">${basketCards || '<div class="empty">none</div>'}</div></div>`
+    ? `<div class="block"><h3>Incoming baskets <span class="hint">(multi-leg)</span></h3><div class="list">${basketCards || '<div class="empty">none</div>'}</div>`
+      + (myBasketCards ? `<h3 style="margin-top:14px">Your basket quotes <span class="hint">(rivals can't see these)</span></h3><div class="list">${myBasketCards}</div>` : '')
+      + `</div>`
     : '';
 
   panel.innerHTML = `
@@ -575,9 +603,73 @@ async function award() {
   });
 }
 
+// Partial-Vickrey: run the same sealed auction, but the buyer takes only
+// `fillQuantity` of the winning lot at the 2nd price, prorated (AwardPartial).
+async function awardPartial() {
+  if (READONLY) return toast(RO_MSG);
+  if (!awardable) return;
+  const fill = posDec(document.getElementById('award-fill').value);
+  if (!fill) return toast('partial award quantity must be a positive number', true);
+  if (Number(fill) > awardable.qty) return toast('partial award exceeds the RFQ quantity', true);
+  await guarded(document.getElementById('btn-award-partial'), async () => {
+    try {
+      await submit(P.buyer, { ExerciseCommand: { templateId: awardable.tpl, contractId: awardable.rfqCid,
+        choice: 'AwardPartial', choiceArgument: { quoteCids: awardable.quoteCids, cashCid: awardable.cashCid, fillQuantity: fill } } });
+      toast('Awarded partially — atomic DvP at the prorated Vickrey price'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+// Buyer archives its own live RFQ (sole signatory). Stray/mistaken RFQs.
+async function cancelRFQ() {
+  if (READONLY) return toast(RO_MSG);
+  if (!cancelableRfq) return;
+  await guarded(document.getElementById('btn-cancel-rfq'), async () => {
+    try {
+      await submit(P.buyer, { ExerciseCommand: { templateId: cancelableRfq.tpl, contractId: cancelableRfq.cid, choice: 'CancelRFQ', choiceArgument: {} } });
+      toast('RFQ cancelled'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+// Buyer declines a sealed quote — its escrowed bond returns to the dealer.
+async function rejectQuote(quoteCid, tpl, btn) {
+  if (READONLY) return toast(RO_MSG);
+  await guarded(btn, async () => {
+    try {
+      await submit(P.buyer, { ExerciseCommand: { templateId: tpl, contractId: quoteCid, choice: 'RejectQuote', choiceArgument: {} } });
+      toast('Quote rejected — escrow returned to the dealer'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+// Dealer withdraws its live basket quote — every escrowed leg returns to it.
+async function withdrawBasket(role, quoteCid, tpl, btn) {
+  if (READONLY) return toast(RO_MSG);
+  await guarded(btn, async () => {
+    try {
+      await submit(P[role], { ExerciseCommand: { templateId: tpl, contractId: quoteCid, choice: 'WithdrawBasketQuote', choiceArgument: {} } });
+      toast('Basket quote withdrawn — all legs released back to the dealer'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+// Buyer declines a basket quote — every leg returns to the dealer.
+async function rejectBasket(quoteCid, tpl, btn) {
+  if (READONLY) return toast(RO_MSG);
+  await guarded(btn, async () => {
+    try {
+      await submit(P.buyer, { ExerciseCommand: { templateId: tpl, contractId: quoteCid, choice: 'RejectBasketQuote', choiceArgument: {} } });
+      toast('Basket rejected — all legs returned to the dealer'); refresh();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
 // ---- wire up ----
 document.getElementById('btn-create-rfq').addEventListener('click', createRFQ);
 document.getElementById('btn-award').addEventListener('click', award);
+document.getElementById('btn-award-partial')?.addEventListener('click', awardPartial);
+document.getElementById('btn-cancel-rfq')?.addEventListener('click', cancelRFQ);
 document.getElementById('btn-create-basket')?.addEventListener('click', createBasketRFQ);
 document.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-quote]');
@@ -622,6 +714,21 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-withdraw]');
   if (!b) return;
   withdrawQuote(b.dataset.role, b.dataset.withdraw, b.dataset.tpl, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-reject]');
+  if (!b) return;
+  rejectQuote(b.dataset.reject, b.dataset.tpl, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-basketwithdraw]');
+  if (!b) return;
+  withdrawBasket(b.dataset.role, b.dataset.basketwithdraw, b.dataset.tpl, b);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-basketreject]');
+  if (!b) return;
+  rejectBasket(b.dataset.basketreject, b.dataset.tpl, b);
 });
 // Sidebar view switcher: swap the main area between the 3-column desk and the
 // dedicated audit-trail page (external links carry no data-view and navigate away).
