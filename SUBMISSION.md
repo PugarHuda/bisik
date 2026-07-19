@@ -28,12 +28,19 @@ no clean audit trail. $30B+/month still trades this way.
 
 ## What we built
 - **Confidential RFQ desk in Daml** — RFQ → sealed Quote → atomic DvP →
-  regulator-observable TradeReport. **Two settlement modes on the same sealed
-  rails:** competitive reverse-Vickrey Award (cheapest wins, paid the 2nd price)
-  *and* direct bilateral OTC (buyer hits one dealer at its firm ask), with
-  **partial fills** (settle part of a lot at the prorated ask). Escrow-backed
-  (dealer can't pull collateral mid-auction), issuer-bound, RFQ-bound quotes,
-  time-boxed RFQs.
+  regulator-observable TradeReport. **Three settlement rails on the same sealed
+  quotes:** competitive reverse-Vickrey Award (cheapest wins, paid the 2nd price),
+  direct bilateral OTC (buyer hits one dealer at its firm ask), and **partial fills
+  on both** (settle part of a lot at the prorated price). Escrow-backed (dealer can't
+  pull collateral mid-auction), issuer-bound, RFQ-bound quotes, time-boxed RFQs.
+- **Provable best execution — without any public order book.** *(the marquee)* A
+  public exchange audits best execution against a visible book; Bisik has none — the
+  pre-trade stays confidential — yet the regulator still proves it. From the sealed
+  asks the counterparties selectively disclose to it, the desk confirms the winner
+  quoted the lowest ask and the buyer paid no worse than any competitor. **Live on
+  Devnet: 10 green attestations across all three rails** (Vickrey, direct OTC, partial
+  fill) and asset classes. Confidential pre-trade, *provable* post-trade — the
+  institutional payoff, in a dedicated **Best execution** view and an MCP tool.
 - **Web desk** — three party views of one ledger over the JSON Ledger API; watch a
   dealer quote and the rival's column stay empty. A **Portfolio** view (holdings per
   party) and an **Audit trail** view (the regulator's settled record).
@@ -41,17 +48,25 @@ no clean audit trail. $30B+/month still trades this way.
   participant node *actually holds*: each dealer sees only its own sealed quotes
   (rivals: 0), the regulator sees zero pre-trade. Not UI filtering — the ledger never
   transmits it. Turns the privacy claim into something a judge can check.
-- **Selective disclosure — "users control who sees what," literally.** The buyer can
-  reveal *one* sealed quote to a chosen auditor (the regulator) on demand — for a
-  best-execution audit or a dispute — without ever making it public or sending it to
-  rival dealers (`Quote.DiscloseTo`). Canton's real superpower, and an angle most
-  privacy demos miss. Drive it in `npm run demo` (a write, so disabled on the read-only
-  hosted URL).
-- **MCP server** — the desk as AI-native tools; an agent can *verify Canton's
-  privacy itself* (`party_view(dealerA)` returns only its own quote).
+- **Selective disclosure — "users control who sees what," literally.** *Either side*
+  of a trade can reveal *one* sealed quote to a chosen auditor on demand — the buyer
+  for a best-execution audit (`Quote.DiscloseTo`), or the dealer for a fair-pricing /
+  dispute defence (`Quote.DealerDiscloseTo`) — without ever making it public or sending
+  it to rivals. This is the primitive the best-execution proof is built on, and an
+  angle most privacy demos miss.
+- **"What a transparent chain would leak" — a live contrast.** The Verify-privacy view
+  quantifies, right now, what a public L1 would be exposing in its mempool (live quotes
+  + RFQs) versus what Canton actually transmits to a non-counterparty (zero), and maps
+  each leak to the cryptography our four earlier builds needed (TEE/ZK/Seal/FHE).
+- **MCP server** — the desk as AI-native tools; an agent can *verify Canton's privacy
+  itself* (`party_view(dealerA)` returns only its own quote) and *audit best execution*
+  (`best_execution` attests each settled trade against the disclosed asks).
 - **Autonomous market-maker agent** — a software agent that watches for RFQs it's
   invited to and auto-quotes, blind to its rivals.
-- **17 behavioural tests (+ seed scripts, 22 total), CI, deployed live on Canton Devnet.**
+- **Every model choice is drivable in the UI**, checked by **three Playwright suites
+  that click the real desk end-to-end** (`e2e` 20/20 · `e2e:actions` 16/16 ·
+  `e2e:bestexec` 8/8) on top of **22 Daml behavioural scripts**. CI green; deployed
+  live on Canton Devnet.
 
 ## Why Canton (the differentiator)
 We built this exact product four times before — iExec (TEE), Stellar (ZK circuits),
@@ -61,10 +76,11 @@ ledger's data model. This is the case *for* Canton, made by someone who tried th
 alternatives.
 
 ## How it maps to the judging criteria
-- **Technical execution** — clean two-package Daml; 17 behavioural tests (privacy, Vickrey 1/2/3,
-  escrow guard, issuer binding, cross-RFQ, deadline, one-quote-per-dealer, partial fills both modes, baskets, token interface, selective disclosure); CI; deployed + verified on Devnet.
-- **Originality** — an agent that verifies the ledger's privacy for itself; a desk
-  built five times that finally needed no cryptography stack.
+- **Technical execution** — clean two-package Daml; 22 behavioural scripts (privacy, Vickrey 1/2/3,
+  escrow guard, issuer binding, cross-RFQ, deadline, one-quote-per-dealer, partial fills both rails, baskets, token interface, symmetric selective disclosure) + three Playwright suites clicking every choice end-to-end; CI; deployed + verified on Devnet.
+- **Originality** — provable best execution with no public order book; an agent that
+  verifies the ledger's privacy for itself; a desk built five times that finally needed
+  no cryptography stack.
 - **UX** — a three-column desk that *shows* the privacy (rival column stays blank).
 - **Real-world applicability** — multi-dealer RFQ is the Tradeweb/Bloomberg OTC
   workflow; Tradeweb is a Canton Super Validator. Time-boxed, issuer-bound, DvP,
@@ -107,7 +123,11 @@ buyer holds the sealed quotes, each dealer sees only its own, and the regulator 
 **spread of real settled trades** — Vickrey, direct OTC, a partial fill, and a
 multi-instrument basket, across Treasuries, Gilts, Bunds and corporates. That blindness
 is the ledger model, not UI hiding — proof the contracts are running on Devnet with real
-sub-transaction privacy.
+sub-transaction privacy. Then open the **Best execution** view in the sidebar: **10
+green "attested" cards** prove, on live Devnet data, that the buyer beat every disclosed
+competing ask — across all three settlement rails, with no public order book anywhere.
+The **Verify privacy** view adds a live count of what a transparent chain would have
+leaked instead (zero, here).
 
 > The public desk is **read-only by design**: it proxies *reads* to Devnet with the
 > validator token kept server-side and blocks every write, so a public URL can never
@@ -135,4 +155,5 @@ pre-trade. Full Devnet deploy steps in `README.md`; the multi-angle QA record in
 - [ ] 3-minute video pitch + demo — **record with your own voice** (Encode rule);
       read-aloud script in `DEMO-VO.md`, storyboard in `DEMO-SCRIPT.md`, captures in `media/`
 
-Deadline: **Sunday 19 July 2026, midnight in your local timezone (WIB)** — extended by Encode Club.
+Deadline: **Sunday 19 July 2026, midnight (WIB)** — the dashboard countdown resolves to
+**Mon 20 July, 18:59 WIB**; treat the earlier as the target. Extended by Encode Club.
