@@ -123,10 +123,10 @@
   .tbl{ border:2px solid var(--line); box-shadow:5px 5px 0 var(--shadow) }
 
   /* ---- HERO: the RFQ ticket (the thesis as an object) ---- */
-  .hero{ border-bottom:2px solid var(--line); overflow:hidden }
+  .hero{ position:relative; border-bottom:2px solid var(--line); overflow:hidden }
   .hero::before{ display:none }                     /* flat — no radial glow */
-  .hero .wrap{ display:grid; grid-template-columns:1.02fr .98fr; gap:52px; align-items:center;
-    background-image:radial-gradient(var(--line) 1px,transparent 1px); background-size:32px 32px; background-position:-16px -16px }
+  .hero-fx{ position:absolute; inset:0; z-index:0; display:block; width:100%; height:100% }
+  .hero .wrap{ position:relative; z-index:1; display:grid; grid-template-columns:1.02fr .98fr; gap:52px; align-items:center }
   @media(max-width:940px){ .hero .wrap{ grid-template-columns:1fr; gap:40px } }
   .hero h1{ font-weight:800; letter-spacing:-.045em }
   /* the ticket: an off-white physical trade ticket sitting in the dark terminal */
@@ -173,7 +173,7 @@
   </div>
 </div></nav>
 
-<header class="hero"><div class="wrap">
+<header class="hero"><canvas class="hero-fx" aria-hidden="true"></canvas><div class="wrap">
   <div class="hero-copy">
     <div class="eyebrow">Confidential · Multi-dealer RFQ · Canton</div>
     <h1>Whisper your quotes.<br><span class="g">The market hears nothing.</span></h1>
@@ -281,5 +281,55 @@
   <div>bisik<span style="color:var(--accent)">.</span> — confidential RFQ desk · Canton Network · Build on Canton Hackathon 2026</div>
   <div><a href="app.html">Open the desk</a> · <a href="https://github.com/PugarHuda/bisik" target="_blank" rel="noopener">GitHub</a></div>
 </div></footer>
+
+<script>
+/* Hero ambient field — a slow green "market signal" stream drifting behind the
+   sealed ticket. Canvas, no deps; capped + DPR-aware; static under reduced-motion;
+   paused when the tab is hidden. */
+(function(){
+  const c=document.querySelector('.hero-fx'); if(!c||!c.getContext) return;
+  const ctx=c.getContext('2d');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W=0,H=0,DPR=1,glowP=[],sparkP=[],raf=0;
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  const gauss=()=>(Math.random()+Math.random()+Math.random()-1.5)/1.5;
+  const band=x=>H*0.72 - x*0.20;                 /* diagonal stream line */
+  /* pre-rendered soft green glow sprite — cheap to stamp many times (the nebula haze) */
+  const spr=document.createElement('canvas'); spr.width=spr.height=64;
+  (function(){ const g=spr.getContext('2d'), rad=g.createRadialGradient(32,32,0,32,32,32);
+    rad.addColorStop(0,'rgba(120,240,190,0.85)'); rad.addColorStop(.35,'rgba(90,220,170,0.25)');
+    rad.addColorStop(1,'rgba(90,220,170,0)'); g.fillStyle=rad; g.fillRect(0,0,64,64); })();
+  function pos(fromLeft,spread){ const x=fromLeft?rnd(-0.06*W,0):rnd(0,W);
+    return { x, y:band(x)+gauss()*H*spread, vx:rnd(0.08,0.28)*DPR, vy:rnd(-0.09,-0.01)*DPR, tw:rnd(0,6.28) }; }
+  function mkGlow(fl){ const p=pos(fl,0.13); p.s=rnd(30,90)*DPR; p.a=rnd(0.05,0.16); p.ts=rnd(0.004,0.012); return p; }
+  function mkSpark(fl){ const stream=Math.random()<0.8; const p=pos(fl, stream?0.13:0.45);
+    if(!stream){ p.y=rnd(0,H); } p.r=rnd(0.4,1.5)*DPR; p.a=rnd(0.15,0.7); p.ts=rnd(0.01,0.035); return p; }
+  function size(){ DPR=Math.min(devicePixelRatio||1,2); const r=c.getBoundingClientRect();
+    W=c.width=Math.max(1,r.width*DPR); H=c.height=Math.max(1,r.height*DPR);
+    const A=r.width*r.height; glowP=[]; sparkP=[];
+    const ng=Math.min(130,Math.floor(A/5200)), ns=Math.min(1300,Math.floor(A/760));
+    for(let i=0;i<ng;i++) glowP.push(mkGlow(false));
+    for(let i=0;i<ns;i++) sparkP.push(mkSpark(false));
+  }
+  function draw(){ ctx.clearRect(0,0,W,H); ctx.globalCompositeOperation='lighter';
+    for(const p of glowP){ p.x+=p.vx; p.y+=p.vy; p.tw+=p.ts;
+      if(p.x-p.s>W||p.y+p.s<0){ Object.assign(p,mkGlow(true)); }
+      let a=p.a*(0.6+0.4*Math.sin(p.tw)); ctx.globalAlpha=a<0?0:a; ctx.drawImage(spr,p.x-p.s/2,p.y-p.s/2,p.s,p.s);
+    }
+    for(const p of sparkP){ p.x+=p.vx; p.y+=p.vy; p.tw+=p.ts;
+      if(p.x>W+4||p.y<-4){ Object.assign(p,mkSpark(true)); }
+      let a=p.a*(0.5+0.5*Math.sin(p.tw)); ctx.globalAlpha=a<0?0:a>1?1:a;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.283); ctx.fillStyle='#a8f5d0'; ctx.fill();
+    }
+    ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+  }
+  function loop(){ draw(); raf=requestAnimationFrame(loop); }
+  size();
+  if(reduce){ draw(); return; }
+  raf=requestAnimationFrame(loop);
+  addEventListener('resize',()=>{ cancelAnimationFrame(raf); size(); raf=requestAnimationFrame(loop); },{passive:true});
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden){cancelAnimationFrame(raf);raf=0;} else if(!raf){raf=requestAnimationFrame(loop);} });
+})();
+</script>
 </body>
 </html>
