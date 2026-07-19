@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Bisik — confidential multi-dealer RFQ desk on Canton</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0d10'/%3E%3Ctext x='16' y='23' font-size='20' font-family='monospace' font-weight='bold' text-anchor='middle' fill='%236ee7b7'%3Eb%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
   :root{
     --bg:#07090c; --bg2:#0b0f14; --ink:#e9eef5; --muted:#8b97a6; --line:#1d242d;
@@ -106,6 +109,7 @@
      ========================================================================== */
   :root{ --line:#38424f; --shadow:#03050a; --paper:#efe9db; --seal:#b23a26; }
   *{ border-radius:0 !important }
+  body{ font-family:'Manrope',ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif }
   nav{ backdrop-filter:none; background:var(--bg); border-bottom:2px solid var(--line) }
   .logo{ font-weight:900 }
   nav .btn{ border-radius:999px !important; border:0 !important; box-shadow:none !important; background:#a6f0cd; color:#06231a }
@@ -130,14 +134,14 @@
   .hero-fx{ position:absolute; inset:0; z-index:0; display:block; width:100%; height:100% }
   .hero .wrap{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; text-align:center;
     padding-top:10vh; padding-bottom:0 }
-  .hero-copy{ display:flex; flex-direction:column; align-items:center; gap:22px; max-width:840px }
+  .hero-copy{ display:flex; flex-direction:column; align-items:center; gap:22px; max-width:1000px }
   /* reference-style hero: soft rounded pill badge, sans headline, two-tone rounded CTAs */
   .hero-pill{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line) !important;
     border-radius:999px !important; background:rgba(255,255,255,.03); color:#c2ccd8; font-size:13px; font-weight:600;
     letter-spacing:.01em; padding:8px 17px; text-transform:none }
   .hero-pill::first-letter{ color:var(--accent) }
-  .hero h1{ font-family:-apple-system,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif !important;
-    font-weight:700; letter-spacing:-.03em; margin:0; font-size:clamp(40px,7.2vw,88px); line-height:1.03 }
+  .hero h1{ font-family:'Manrope',ui-sans-serif,system-ui,sans-serif !important;
+    font-weight:700; letter-spacing:-.022em; margin:0; font-size:clamp(34px,5.4vw,66px); line-height:1.1 }
   .hero .lede{ margin:0 auto; max-width:56ch; text-align:center; color:#aeb9c6 }
   .hero .cta{ justify-content:center; margin:8px 0 0; gap:16px }
   .hero .cta .btn{ border:0 !important; box-shadow:none !important; border-radius:999px !important;
