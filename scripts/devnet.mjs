@@ -495,35 +495,43 @@ async function seedCases() {
   console.log('\nseed-cases done — the regulator now audits a spread of real settlement types on-chain.');
 }
 
-// A single auction where the buyer selectively DISCLOSES both competing sealed asks
-// to the regulator before awarding — so the hosted "Provable best execution" view and
-// the MCP best_execution tool show a real, green attestation on live Devnet data.
+// Auctions where the buyer selectively DISCLOSES both competing sealed asks to the
+// regulator before awarding — so the hosted "Provable best execution" view and the
+// MCP best_execution tool show real, green attestations on live Devnet data. One per
+// fresh institutional instrument; idempotent (skips any already settled).
 async function seedBestExec() {
   const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
-  const inst = 'UST7Y', qty = '1000.0';
   const reg = await acsAs(p.regulator);
-  if (reg.some((e) => e.templateId.endsWith(':Bisik:TradeReport') && e.createArgument.instrument === inst)) {
-    console.log(`seed-bestexec: ${inst} already settled — skipping (idempotent)`); return;
-  }
-  const cash = cidOf(await submit(p.cashIssuer, createHolding(p.cashIssuer, p.buyer, 'USDC', '1500000.0')));
-  const bA = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerA, inst, qty)));
-  const bB = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerB, inst, qty)));
-  const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
-    buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
-    instrument: inst, quantity: qty, payInstrument: 'USDC', assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer,
-    deadline: '2030-01-01T00:00:00Z' } } }));
-  const q = async (dealer, price, asset) => cidOfTpl(await submit(dealer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`,
-    contractId: rfq, choice: 'SubmitQuote', choiceArgument: { dealer, price, assetCid: asset } } }), ':Bisik:Quote');
-  const qA = await q(p.dealerA, '1470000.0', bA);
-  const qB = await q(p.dealerB, '1490000.0', bB);
-  // Disclose BOTH sealed asks to the regulator (nonconsuming) BEFORE the award — this
-  // is exactly what makes best execution provable without a public order book.
+  const done = new Set(reg.filter((e) => e.templateId.endsWith(':Bisik:TradeReport')).map((e) => e.createArgument.instrument));
   const disclose = (qc) => submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:Quote`, contractId: qc,
     choice: 'DiscloseTo', choiceArgument: { auditor: p.regulator, reason: 'best-execution audit' } } });
-  await disclose(qA); await disclose(qB);
-  await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq,
-    choice: 'Award', choiceArgument: { quoteCids: [qA, qB], cashCid: cash } } });
-  console.log(`seed-bestexec: ${inst} ${qty} — dealerA 1,470,000 wins, cleared at the Vickrey 1,490,000; both asks disclosed → best execution attested on-ledger.`);
+  // One disclosed 2-dealer Vickrey: dealerA (lower ask) wins, cleared at dealerB's price.
+  const auction = async (inst, qty, pA, pB, cashAmt) => {
+    if (done.has(inst)) { console.log(`· ${inst} already settled — skip`); return; }
+    const cash = cidOf(await submit(p.cashIssuer, createHolding(p.cashIssuer, p.buyer, 'USDC', cashAmt)));
+    const bA = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerA, inst, qty)));
+    const bB = cidOf(await submit(p.bondIssuer, createHolding(p.bondIssuer, p.dealerB, inst, qty)));
+    const rfq = cidOf(await submit(p.buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
+      buyer: p.buyer, regulator: p.regulator, invitedDealers: [p.dealerA, p.dealerB],
+      instrument: inst, quantity: qty, payInstrument: 'USDC', assetIssuer: p.bondIssuer, payIssuer: p.cashIssuer,
+      deadline: '2030-01-01T00:00:00Z' } } }));
+    const q = async (dealer, price, asset) => cidOfTpl(await submit(dealer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`,
+      contractId: rfq, choice: 'SubmitQuote', choiceArgument: { dealer, price, assetCid: asset } } }), ':Bisik:Quote');
+    const qA = await q(p.dealerA, pA, bA);
+    const qB = await q(p.dealerB, pB, bB);
+    await disclose(qA); await disclose(qB); // both sealed asks revealed to the regulator BEFORE award
+    await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: rfq,
+      choice: 'Award', choiceArgument: { quoteCids: [qA, qB], cashCid: cash } } });
+    console.log(`· ${inst} ${qty} — dealerA ${pA} wins, cleared at Vickrey ${pB}; both asks disclosed ✓ attested`);
+  };
+  // Fresh institutional instruments (winner ask < runner-up = clearing price).
+  await auction('UST7Y', '1000.0', '1470000.0', '1490000.0', '1500000.0');
+  await auction('UST3Y', '2000.0', '1960000.0', '1980000.0', '2000000.0');
+  await auction('GILT7Y', '1000.0', '1180000.0', '1195000.0', '1200000.0');
+  await auction('BUND7Y', '1500.0', '1465000.0', '1485000.0', '1500000.0');
+  await auction('JPM30', '500.0', '505000.0', '512000.0', '520000.0');
+  await auction('OAT7Y', '800.0', '815000.0', '825000.0', '830000.0');
+  console.log('seed-bestexec done — the regulator can now prove best execution on-ledger for each.');
 }
 
 const cmd = process.argv[2];
