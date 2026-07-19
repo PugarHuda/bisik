@@ -124,13 +124,13 @@
   .tbl{ border:2px solid var(--line); box-shadow:5px 5px 0 var(--shadow) }
 
   /* ---- HERO: the RFQ ticket (the thesis as an object) ---- */
-  .hero{ position:relative; border-bottom:2px solid var(--line); overflow:hidden }
+  /* grand hero (reference layout): the words sit up top, the nebula owns the space below */
+  .hero{ position:relative; min-height:min(94vh,1000px); border-bottom:2px solid var(--line); overflow:hidden }
   .hero::before{ display:none }                     /* flat — no radial glow */
   .hero-fx{ position:absolute; inset:0; z-index:0; display:block; width:100%; height:100% }
-  /* centered hero (reference layout): pill · headline · lede · CTAs · the ticket */
   .hero .wrap{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; text-align:center;
-    padding-top:56px; padding-bottom:54px }
-  .hero-copy{ display:flex; flex-direction:column; align-items:center; gap:20px; max-width:820px }
+    padding-top:10vh; padding-bottom:0 }
+  .hero-copy{ display:flex; flex-direction:column; align-items:center; gap:22px; max-width:840px }
   /* reference-style hero: soft rounded pill badge, sans headline, two-tone rounded CTAs */
   .hero-pill{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line) !important;
     border-radius:999px !important; background:rgba(255,255,255,.03); color:#c2ccd8; font-size:13px; font-weight:600;
@@ -147,36 +147,6 @@
   .hero .cta .btn:hover{ transform:translateY(-1px); filter:brightness(1.06) }
   .hero .chips{ justify-content:center; margin:6px 0 0 }
   .hero .chip{ border-radius:999px !important; border:1px solid var(--line) !important; font-weight:500; color:var(--muted) }
-  /* the ticket: an off-white physical trade ticket, centered in the signal field */
-  .ticket{ background:var(--paper); color:#141414; border:2px solid #141414; box-shadow:12px 12px 0 var(--shadow);
-    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace; font-size:13px; line-height:1.5;
-    transform:rotate(-1.3deg); position:relative; margin:26px auto 0; max-width:460px; width:100% }
-  @media(max-width:520px){ .ticket{ transform:none } }
-  .t-head{ display:flex; justify-content:space-between; align-items:center; gap:12px;
-    padding:12px 16px; border-bottom:2px solid #141414; font-weight:800; letter-spacing:.03em; font-size:12.5px }
-  .t-id{ color:#7a756a; font-weight:600 }
-  .t-meta{ display:grid; grid-template-columns:auto 1fr; gap:5px 16px; padding:13px 16px; border-bottom:2px dashed #141414 }
-  .t-meta .k{ color:#7a756a; letter-spacing:.04em } .t-meta .v{ text-align:right; font-weight:700 }
-  .t-rows{ padding:6px 16px 14px }
-  .t-row{ display:grid; grid-template-columns:1fr 128px auto; align-items:center; gap:14px; padding:9px 0; border-bottom:1px solid #d7d0c2 }
-  .t-row:last-child{ border-bottom:0 }
-  .t-row .d{ font-weight:800; letter-spacing:.02em }
-  .t-row .cell{ position:relative; height:16px }
-  .t-row .ghost{ position:absolute; inset:0; display:flex; align-items:center; justify-content:flex-end; color:#a59f92; font-weight:600 }
-  .t-row .redact{ position:absolute; inset:0 0 0 auto; width:100%; background:#141414 }
-  .t-row .tg{ font-size:10px; letter-spacing:.06em; color:#9a9384; text-align:right; text-transform:uppercase }
-  .t-row.you{ border-top:2px solid #141414; margin-top:4px; padding-top:11px; border-bottom:0 }
-  .t-row.you .price{ position:absolute; inset:0; display:flex; align-items:center; justify-content:flex-end; color:#0a7a4c; font-weight:800 }
-  .t-row.you .tg{ color:#0a7a4c }
-  .t-stamp{ position:absolute; left:22px; bottom:-17px; transform:rotate(-6deg);
-    border:2.5px solid var(--seal); color:var(--seal); background:var(--paper);
-    font-weight:800; letter-spacing:.05em; font-size:11px; padding:5px 11px }
-  /* page-load: rival prices flash, then the black redaction bar wipes across */
-  @keyframes wipe{ from{ width:0 } to{ width:100% } }
-  .t-row .redact{ animation:wipe .45s steps(9,end) forwards }
-  .t-row:nth-child(1) .redact{ animation-delay:.55s }
-  .t-row:nth-child(2) .redact{ animation-delay:.8s }
-  @media(prefers-reduced-motion:reduce){ .t-row .redact{ animation:none; width:100% } }
 </style>
 </head>
 <body>
@@ -210,24 +180,6 @@
       <div class="chip">MCP-native · agent tools</div>
     </div>
   </div>
-
-  <!-- The thesis as an object: one dealer's node. Rivals' quotes are redaction bars
-       ("never sent"); only this dealer's own quote is legible. Not decoration —
-       this is exactly what Canton sub-transaction privacy puts on each node. -->
-  <aside class="ticket" role="img" aria-label="A dealer's node: rival dealers' quotes are redacted (never transmitted); only this dealer's own sealed quote, 4,210,000, is legible.">
-    <div class="t-head"><span>DEALER&nbsp;B · YOUR&nbsp;NODE</span><span class="t-id">RFQ&nbsp;0xA1F··9E</span></div>
-    <div class="t-meta">
-      <span class="k">INSTRUMENT</span><span class="v">TBOND30 · 30Y</span>
-      <span class="k">SIZE</span><span class="v">1,000</span>
-      <span class="k">PANEL</span><span class="v">3 dealers</span>
-    </div>
-    <div class="t-rows">
-      <div class="t-row"><span class="d">DEALER A</span><span class="cell"><span class="ghost">4,250,000</span><span class="redact"></span></span><span class="tg">never sent</span></div>
-      <div class="t-row"><span class="d">DEALER C</span><span class="cell"><span class="ghost">4,305,000</span><span class="redact"></span></span><span class="tg">never sent</span></div>
-      <div class="t-row you"><span class="d">YOUR QUOTE</span><span class="cell"><span class="price">4,210,000</span></span><span class="tg">sealed to buyer</span></div>
-    </div>
-    <div class="t-stamp">SUB&#8209;TRANSACTION&nbsp;PRIVATE</div>
-  </aside>
 </div></header>
 
 <section class="blk" id="how"><div class="wrap">
@@ -311,7 +263,7 @@
   let W=0,H=0,DPR=1,glowP=[],sparkP=[],raf=0;
   const rnd=(a,b)=>a+Math.random()*(b-a);
   const gauss=()=>(Math.random()+Math.random()+Math.random()-1.5)/1.5;
-  const band=x=>H*0.78 - x*0.10;                 /* diagonal stream line */
+  const band=x=>H*0.82 - x*0.06;                 /* stream line low in the hero */
   /* pre-rendered soft green glow sprite — cheap to stamp many times (the nebula haze) */
   const spr=document.createElement('canvas'); spr.width=spr.height=64;
   (function(){ const g=spr.getContext('2d'), rad=g.createRadialGradient(32,32,0,32,32,32);
@@ -320,8 +272,8 @@
   function pos(fromLeft,spread){ const x=fromLeft?rnd(-0.06*W,0):rnd(0,W);
     return { x, y:band(x)+gauss()*H*spread, vx:rnd(0.08,0.28)*DPR, vy:rnd(-0.09,-0.01)*DPR, tw:rnd(0,6.28) }; }
   function mkGlow(fl){ const p=pos(fl,0.23); p.s=rnd(46,138)*DPR; p.a=rnd(0.10,0.26); p.ts=rnd(0.004,0.012); return p; }
-  function mkSpark(fl){ const stream=Math.random()<0.85; const p=pos(fl, stream?0.21:0.5);
-    if(!stream){ p.y=rnd(0,H); } p.r=rnd(0.4,1.8)*DPR; p.a=rnd(0.2,0.82); p.ts=rnd(0.01,0.035); return p; }
+  function mkSpark(fl){ const stream=Math.random()<0.9; const p=pos(fl, stream?0.22:0.4);
+    if(!stream){ p.y=rnd(0.42*H,H); } p.r=rnd(0.4,1.8)*DPR; p.a=rnd(0.2,0.82); p.ts=rnd(0.01,0.035); return p; }
   function size(){ DPR=Math.min(devicePixelRatio||1,2); const r=c.getBoundingClientRect();
     W=c.width=Math.max(1,r.width*DPR); H=c.height=Math.max(1,r.height*DPR);
     const A=r.width*r.height; glowP=[]; sparkP=[];
