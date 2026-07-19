@@ -189,8 +189,9 @@ it leaves to the trusted auctioneer:
   (DvP) or not at all; the escrowed asset can't be pulled back unilaterally by the
   dealer; a quote can only settle the RFQ it was made against; the asset/cash
   issuer is checked against the RFQ's expected issuers.
-- **Two settlement modes, by design:** competitive `Award` (Vickrey second price)
-  and direct bilateral OTC (settle one dealer at its own ask). The buyer chooses the
+- **Two settlement mechanisms, by design** (three rails counting partial fills):
+  competitive `Award` (Vickrey second price) and direct bilateral OTC (settle one
+  dealer at its own ask), each settleable full or partial. The buyer chooses the
   mechanism; either way it can only ever *overpay* a dealer, never underpay below the
   ask, and a dealer may hold only one quote in an auction (enforced on-ledger in
   `Award`). Removing the buyer's discretion entirely — forcing the *true* second
