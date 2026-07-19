@@ -100,6 +100,65 @@
     section.blk{padding:56px 0}
     .wrap{padding:0 20px}
   }
+
+  /* ==========================================================================
+     INSTITUTIONAL BRUTALISM — dark terminal ground, brutalist structure.
+     ========================================================================== */
+  :root{ --line:#38424f; --shadow:#03050a; --paper:#efe9db; --seal:#b23a26; }
+  *{ border-radius:0 !important }
+  nav{ backdrop-filter:none; background:var(--bg); border-bottom:2px solid var(--line) }
+  .logo{ font-weight:900 }
+  .btn{ border:2px solid #071410; box-shadow:4px 4px 0 var(--shadow); font-weight:800; transition:transform .05s,box-shadow .05s }
+  .btn:hover{ filter:none; transform:translate(2px,2px); box-shadow:2px 2px 0 var(--shadow) }
+  .btn.ghost{ border:2px solid var(--line); box-shadow:4px 4px 0 var(--shadow) }
+  .chip{ border:2px solid var(--line); background:var(--card); font-weight:600 }
+  section.blk{ border-bottom:2px solid var(--line) }
+  h2{ font-weight:800 }
+  .eyebrow,.kicker{ font-weight:800 }
+  .feat{ border:2px solid var(--line); box-shadow:5px 5px 0 var(--shadow) }
+  .feat h3{ font-weight:800 } .feat .n{ text-transform:uppercase; letter-spacing:.06em; font-weight:700 }
+  .flow{ border:2px solid var(--line); box-shadow:5px 5px 0 var(--shadow) }
+  .step{ border-right:2px solid var(--line) }
+  @media(max-width:860px){ .step{ border-right:0; border-bottom:2px solid var(--line) } }
+  .tbl{ border:2px solid var(--line); box-shadow:5px 5px 0 var(--shadow) }
+
+  /* ---- HERO: the RFQ ticket (the thesis as an object) ---- */
+  .hero{ border-bottom:2px solid var(--line); overflow:hidden }
+  .hero::before{ display:none }                     /* flat — no radial glow */
+  .hero .wrap{ display:grid; grid-template-columns:1.02fr .98fr; gap:52px; align-items:center;
+    background-image:radial-gradient(var(--line) 1px,transparent 1px); background-size:32px 32px; background-position:-16px -16px }
+  @media(max-width:940px){ .hero .wrap{ grid-template-columns:1fr; gap:40px } }
+  .hero h1{ font-weight:800; letter-spacing:-.045em }
+  /* the ticket: an off-white physical trade ticket sitting in the dark terminal */
+  .ticket{ background:var(--paper); color:#141414; border:2px solid #141414; box-shadow:12px 12px 0 var(--shadow);
+    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace; font-size:13px; line-height:1.5;
+    transform:rotate(-1.3deg); position:relative; justify-self:end; max-width:440px; width:100% }
+  @media(max-width:940px){ .ticket{ transform:none; justify-self:start; margin-top:6px } }
+  .t-head{ display:flex; justify-content:space-between; align-items:center; gap:12px;
+    padding:12px 16px; border-bottom:2px solid #141414; font-weight:800; letter-spacing:.03em; font-size:12.5px }
+  .t-id{ color:#7a756a; font-weight:600 }
+  .t-meta{ display:grid; grid-template-columns:auto 1fr; gap:5px 16px; padding:13px 16px; border-bottom:2px dashed #141414 }
+  .t-meta .k{ color:#7a756a; letter-spacing:.04em } .t-meta .v{ text-align:right; font-weight:700 }
+  .t-rows{ padding:6px 16px 14px }
+  .t-row{ display:grid; grid-template-columns:1fr 128px auto; align-items:center; gap:14px; padding:9px 0; border-bottom:1px solid #d7d0c2 }
+  .t-row:last-child{ border-bottom:0 }
+  .t-row .d{ font-weight:800; letter-spacing:.02em }
+  .t-row .cell{ position:relative; height:16px }
+  .t-row .ghost{ position:absolute; inset:0; display:flex; align-items:center; justify-content:flex-end; color:#a59f92; font-weight:600 }
+  .t-row .redact{ position:absolute; inset:0 0 0 auto; width:100%; background:#141414 }
+  .t-row .tg{ font-size:10px; letter-spacing:.06em; color:#9a9384; text-align:right; text-transform:uppercase }
+  .t-row.you{ border-top:2px solid #141414; margin-top:4px; padding-top:11px; border-bottom:0 }
+  .t-row.you .price{ position:absolute; inset:0; display:flex; align-items:center; justify-content:flex-end; color:#0a7a4c; font-weight:800 }
+  .t-row.you .tg{ color:#0a7a4c }
+  .t-stamp{ position:absolute; left:22px; bottom:-17px; transform:rotate(-6deg);
+    border:2.5px solid var(--seal); color:var(--seal); background:var(--paper);
+    font-weight:800; letter-spacing:.05em; font-size:11px; padding:5px 11px }
+  /* page-load: rival prices flash, then the black redaction bar wipes across */
+  @keyframes wipe{ from{ width:0 } to{ width:100% } }
+  .t-row .redact{ animation:wipe .45s steps(9,end) forwards }
+  .t-row:nth-child(1) .redact{ animation-delay:.55s }
+  .t-row:nth-child(2) .redact{ animation-delay:.8s }
+  @media(prefers-reduced-motion:reduce){ .t-row .redact{ animation:none; width:100% } }
 </style>
 </head>
 <body>
@@ -115,23 +174,42 @@
 </div></nav>
 
 <header class="hero"><div class="wrap">
-  <div class="eyebrow">Confidential multi-dealer RFQ · Canton Network</div>
-  <h1>Whisper your quotes.<br><span class="g">The market hears nothing.</span></h1>
-  <p class="lede">A sealed-bid OTC block-trading desk built native on Canton. A buyer requests
-    quotes from a chosen dealer panel; each quote is sealed — rival dealers never receive it, the
-    market never sees the RFQ, losing bids are archived unrevealed. Settlement is atomic
-    Vickrey delivery-versus-payment. Privacy is the ledger model, not cryptography bolted on.</p>
-  <div class="cta">
-    <a class="btn" href="app.html">Open the desk&nbsp;↗</a>
-    <a class="btn ghost" href="#how">How it works</a>
+  <div class="hero-copy">
+    <div class="eyebrow">Confidential · Multi-dealer RFQ · Canton</div>
+    <h1>Whisper your quotes.<br><span class="g">The market hears nothing.</span></h1>
+    <p class="lede">A sealed-bid OTC block-trading desk, native on Canton. A rival dealer never
+      receives your quote — the ledger doesn't transmit it. Losing bids are archived, never
+      revealed. Settlement is atomic Vickrey delivery-versus-payment. Privacy is the ledger
+      model, not cryptography bolted on.</p>
+    <div class="cta">
+      <a class="btn" href="app.html">Open the desk&nbsp;↗</a>
+      <a class="btn ghost" href="#how">How it works</a>
+    </div>
+    <div class="chips">
+      <div class="chip">● <b>Live on Canton Devnet</b></div>
+      <div class="chip"><b>27</b> on-ledger tests</div>
+      <div class="chip">Provable best execution</div>
+      <div class="chip">MCP-native · agent tools</div>
+    </div>
   </div>
-  <div class="chips">
-    <div class="chip">● <b>Live on Canton Devnet</b></div>
-    <div class="chip"><b>27</b> on-ledger tests</div>
-    <div class="chip">Verify privacy · live proof</div>
-    <div class="chip">Selective disclosure</div>
-    <div class="chip">MCP-native · agent tools</div>
-  </div>
+
+  <!-- The thesis as an object: one dealer's node. Rivals' quotes are redaction bars
+       ("never sent"); only this dealer's own quote is legible. Not decoration —
+       this is exactly what Canton sub-transaction privacy puts on each node. -->
+  <aside class="ticket" role="img" aria-label="A dealer's node: rival dealers' quotes are redacted (never transmitted); only this dealer's own sealed quote, 4,210,000, is legible.">
+    <div class="t-head"><span>DEALER&nbsp;B · YOUR&nbsp;NODE</span><span class="t-id">RFQ&nbsp;0xA1F··9E</span></div>
+    <div class="t-meta">
+      <span class="k">INSTRUMENT</span><span class="v">TBOND30 · 30Y</span>
+      <span class="k">SIZE</span><span class="v">1,000</span>
+      <span class="k">PANEL</span><span class="v">3 dealers</span>
+    </div>
+    <div class="t-rows">
+      <div class="t-row"><span class="d">DEALER A</span><span class="cell"><span class="ghost">4,250,000</span><span class="redact"></span></span><span class="tg">never sent</span></div>
+      <div class="t-row"><span class="d">DEALER C</span><span class="cell"><span class="ghost">4,305,000</span><span class="redact"></span></span><span class="tg">never sent</span></div>
+      <div class="t-row you"><span class="d">YOUR QUOTE</span><span class="cell"><span class="price">4,210,000</span></span><span class="tg">sealed to buyer</span></div>
+    </div>
+    <div class="t-stamp">SUB&#8209;TRANSACTION&nbsp;PRIVATE</div>
+  </aside>
 </div></header>
 
 <section class="blk" id="how"><div class="wrap">

@@ -238,3 +238,38 @@ body.app .desk { min-height: 0; flex: 1; }
   .side-nav { flex-direction: row; flex-wrap: wrap; margin-left: auto; }
   .side-foot { margin: 0; }
 }
+
+/* ============================================================================
+   INSTITUTIONAL BRUTALISM — dark trading-terminal ground, brutalist structure:
+   sharp corners, thick bright borders, hard near-black offset shadows, chunky
+   uppercase labels, exposed grid.
+   ========================================================================== */
+:root { --line: #3a4553; --panel-2: #191f28; --shadow: #04060a; }
+* { border-radius: 0 !important; }
+body { font-weight: 450; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.desk { gap: 2px; } .stats { gap: 2px; }
+.topbar { border-bottom: 2px solid var(--line); }
+.phead { border-bottom: 2px solid var(--line); }
+.stat { border-right: 2px solid var(--line); }
+.panel[data-role="buyer"], .panel[data-role="dealerA"], .panel[data-role="dealerB"] { border-top-width: 4px; }
+.who { text-transform: uppercase; letter-spacing: .05em; font-weight: 800; }
+.block h3 { text-transform: uppercase; letter-spacing: .04em; font-weight: 800; font-size: 12px; }
+.stat .k { font-weight: 800; }
+.card, .vf-row, .vf-stat, .be-card, .pf-col, .audit table, .side .ledger {
+  border: 2px solid var(--line); box-shadow: 4px 4px 0 var(--shadow); }
+.card.win { border-color: var(--accent); box-shadow: 4px 4px 0 var(--accent-dim); }
+.empty, .blind { border: 2px dashed var(--line); }
+.form input, input[type=number], input { border: 2px solid var(--line); background: #0e1319; }
+button { border: 2px solid #071410; font-weight: 700; letter-spacing: .01em;
+  box-shadow: 3px 3px 0 var(--shadow); transition: transform .05s ease, box-shadow .05s ease; }
+button:hover:not(:disabled) { filter: none; transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
+button.ghost { border: 2px solid var(--line); box-shadow: 3px 3px 0 var(--shadow); }
+button:disabled { box-shadow: 3px 3px 0 var(--shadow); }
+.side { border-right: 2px solid var(--line); }
+.side-nav a.on { box-shadow: none; border: 2px solid var(--accent); }
+.vf-verdict { font-weight: 800; }
+.vf-badge { border: 2px solid var(--line); box-shadow: 2px 2px 0 var(--shadow); }
+.be-verdict, .be-tag { border: 2px solid var(--line); box-shadow: 2px 2px 0 var(--shadow); font-weight: 800; }
+.be-verdict.ok { border-color: var(--accent); }
+.toast { border: 2px solid var(--line); box-shadow: 4px 4px 0 var(--shadow); }
