@@ -63,6 +63,15 @@ dealer sees only its own, the regulator sees nothing pre-trade. Hosted via a ser
 proxy that forwards **reads only** (the privileged token stays server-side); command
 submission is disabled on the public URL. To drive the full flow yourself, run it locally:
 
+The sidebar carries four read views over the same live ledger: **Verify privacy** (a
+live count of what each node actually holds + a "what a transparent chain would leak"
+contrast), **Best execution** (10 green attestations proving, from selectively-disclosed
+asks, that the buyer beat every competitor — across the Vickrey, direct-OTC and
+partial-fill rails, with no public order book), **Audit trail** (the regulator's settled
+record + disclosures), and **Portfolio** (holdings per party). Every model choice —
+award, partial-Vickrey, direct-OTC, partial fill, selective disclosure (buyer *and*
+dealer), withdraw, reject, cancel, baskets — is drivable in the local desk.
+
 ## Live demo (local ledger)
 
 One command boots a Canton sandbox, seeds it, and serves the desk. Requires the

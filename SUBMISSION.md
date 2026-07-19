@@ -63,10 +63,11 @@ no clean audit trail. $30B+/month still trades this way.
   (`best_execution` attests each settled trade against the disclosed asks).
 - **Autonomous market-maker agent** — a software agent that watches for RFQs it's
   invited to and auto-quotes, blind to its rivals.
-- **Every model choice is drivable in the UI**, checked by **three Playwright suites
-  that click the real desk end-to-end** (`e2e` 20/20 · `e2e:actions` 16/16 ·
-  `e2e:bestexec` 8/8) on top of **22 Daml behavioural scripts**. CI green; deployed
-  live on Canton Devnet.
+- **Every model choice is drivable in the UI.** **22 Daml behavioural scripts are
+  CI-gated** (build + `daml test` on every push); on top of them, **three Playwright
+  suites click the real desk end-to-end** (`e2e` 20/20 · `e2e:actions` 16/16 ·
+  `e2e:bestexec` 8/8, run locally against a live sandbox + browser). Deployed live on
+  Canton Devnet.
 
 ## Why Canton (the differentiator)
 We built this exact product four times before — iExec (TEE), Stellar (ZK circuits),
@@ -113,7 +114,7 @@ Prizes are awarded to the top 3 *across all tracks*, and Bisik is deliberately b
   Visual assets to narrate over: **`media/bisik-pitch.mp4`** (a 39s animated Remotion
   pitch, `video/`) and **`media/bisik-demo-full.webm`** (a screen-driven desk B-roll).
   Encode requires the presenter's own voice, so these are the visuals — record narration on top.
-- Deck: **`slides/bisik-deck.pdf`** (10 slides, pre-rendered) · source `slides/index.html`
+- Deck: **`slides/bisik-deck.pdf`** (11 slides, pre-rendered) · source `slides/index.html`
 
 ## How judges try it
 
@@ -151,7 +152,7 @@ pre-trade. Full Devnet deploy steps in `README.md`; the multi-angle QA record in
 - [x] Public repository — github.com/PugarHuda/bisik
 - [x] Deployed live on Canton Devnet (not LocalNet) — verified on-ledger
 - [x] Link to live product — **https://bisik-eight.vercel.app** (hosted, read-only over live Devnet) + `npm run demo`
-- [x] Presentation deck — `slides/bisik-deck.pdf` (10 slides)
+- [x] Presentation deck — `slides/bisik-deck.pdf` (11 slides)
 - [ ] 3-minute video pitch + demo — **record with your own voice** (Encode rule);
       read-aloud script in `DEMO-VO.md`, storyboard in `DEMO-SCRIPT.md`, captures in `media/`
 

@@ -80,9 +80,9 @@
       <li>Buyer requests quotes from a <span class="accent">chosen dealer panel</span> — the market never sees the RFQ.</li>
       <li>Each dealer’s quote is <span class="accent">sealed</span> — rival dealers never receive it.</li>
       <li>Cheapest ask wins, paid the <span class="accent">second price</span> (Vickrey) — atomic delivery-versus-payment.</li>
-      <li>A regulator sees the executed trade — and <span class="accent">only</span> that.</li>
+      <li>A regulator sees the executed trade — and <span class="accent">only</span> that — yet best execution stays <span class="accent">provable</span> via selective disclosure.</li>
     </ul>
-    <p class="lede">Confidential pre-trade, auditable post-trade.</p>
+    <p class="lede">Confidential pre-trade, provable &amp; auditable post-trade.</p>
   </section>
 
   <section class="slide">
@@ -104,6 +104,27 @@ Award          cheapest ask wins, paid the 2nd price · atomic DvP
   ↓            cash → dealer + asset → buyer, both legs or neither
 TradeReport    regulator sees the settled trade — post-trade only</div>
     <p class="lede">Privacy = Canton sub-transaction privacy. Pricing = the Vickrey rule computed in the <code>Award</code> choice. Settlement = atomic DvP.</p>
+  </section>
+
+  <section class="slide">
+    <div class="brandmark">bisik<span class="dot">.</span></div>
+    <div class="kicker">The institutional payoff</div>
+    <h2>Provable best execution — with no public order book.</h2>
+    <div class="cols">
+      <div>
+        <ul>
+          <li>A public exchange audits best execution against a <span class="accent">visible order book</span>. Bisik has none — pre-trade stays confidential.</li>
+          <li>Yet the regulator still <span class="accent">proves</span> it: either side can <span class="accent">selectively disclose</span> a sealed ask to the regulator on demand — never to rivals.</li>
+          <li>The desk confirms the winner quoted the lowest ask and the buyer paid no worse than any competitor.</li>
+          <li><span class="accent">Live on Devnet: 10 green attestations</span> across all three rails — Vickrey, direct OTC, partial fill.</li>
+        </ul>
+        <p class="lede">Confidential pre-trade, <em>provable</em> post-trade.</p>
+      </div>
+      <div>
+        <img src="../media/best-execution.png" alt="Best-execution attestation: winner lowest ask, buyer beat every disclosed rival" />
+        <p class="cap">The regulator’s view: executed price checked against the sealed asks the counterparties disclosed to it.</p>
+      </div>
+    </div>
   </section>
 
   <section class="slide">
@@ -140,8 +161,8 @@ TradeReport    regulator sees the settled trade — post-trade only</div>
     <ul>
       <li>Clean two-package Daml — the deployable model DAR carries no test/script bloat.</li>
       <li>Escrow-backed atomic DvP; the reverse-Vickrey clearing is computed on-ledger in the <code>Award</code> choice.</li>
-      <li>17 behavioural tests, incl. explicit <span class="accent">privacy assertions</span> (Dealer B cannot query Dealer A’s quote), issuer-binding, one-quote-per-dealer, partial-fill math, and the escrow-can’t-be-yanked guard.</li>
-      <li>Web desk over the JSON Ledger API — award flow verified end-to-end.</li>
+      <li>22 Daml behavioural scripts (privacy assertions, Vickrey 1/2/3, issuer-binding, one-quote-per-dealer, partial-fill math, symmetric disclosure) <span class="accent">plus three Playwright suites</span> that click every choice on the real desk end-to-end.</li>
+      <li>Web desk over the JSON Ledger API — every model choice is drivable; award, disclosure, and best-execution flows verified end-to-end.</li>
       <li><span class="accent">Agentic</span> — an MCP server (an agent verifies Canton's privacy itself) + an autonomous market-maker that quotes RFQs blind. Private DeFi × agentic commerce.</li>
       <li><span class="accent">Deployed live on Canton Devnet</span> (5N validator) — dealers blind pre-trade, the regulator's post-trade audit populated, all proven on-ledger.</li>
     </ul>
@@ -152,7 +173,7 @@ TradeReport    regulator sees the settled trade — post-trade only</div>
     <div class="kicker">Honest scope · roadmap</div>
     <h2>Shipped, and what’s next.</h2>
     <ul>
-      <li><span class="accent">Shipped:</span> two settlement modes — competitive Vickrey <em>and</em> direct bilateral OTC — with <span class="accent">partial fills</span>; one-quote-per-dealer enforced on-ledger.</li>
+      <li><span class="accent">Shipped:</span> three settlement rails — competitive Vickrey, direct bilateral OTC, and <span class="accent">partial fills on both</span>; one-quote-per-dealer enforced on-ledger; <span class="accent">provable best execution</span> across all three.</li>
       <li><span class="accent">Shipped:</span> <span class="accent">multi-instrument baskets</span> (atomic multi-leg DvP) and an <span class="accent">SSE push stream</span> so the desk updates the instant the ledger moves.</li>
       <li><span class="accent">Shipped:</span> a CIP-0056-aligned <code>Token</code> interface — the plug for the full token standard (TransferInstruction / Allocation registries) next.</li>
       <li><span class="accent">Ahead:</span> a trusted auctioneer to force the true second price even against a self-interested buyer. MPC would do it too — but that re-introduces the very cryptography Canton lets us skip.</li>
