@@ -193,6 +193,12 @@ UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
   via `EscrowedHolding.DeliverSplit` (remainder returns to the dealer);
   `testPartialFill` checks the exact money math. Also on the Vickrey rail
   (`RFQ.AwardPartial` / `Quote.SettleQuotePartial`, `testPartialVickrey`).
+  *Known rounding nuance:* `fillPay = clearingPrice * fillQuantity / quantity` rounds
+  to `Numeric 10`, so a non-divisible fill can under-pay the dealer by ≤~5e-11 (buyer's
+  favour) while the asset leg is exact — negligible at Decimal precision; a real
+  deployment wanting the dealer made whole would round `fillPay` up. (Not patched in
+  the model: editing `daml/Bisik.daml` shifts LF source spans and changes the deployed
+  package id `b0058535…`, so the source is frozen to match live Devnet.)
 - Multi-instrument baskets (`BasketRFQ`/`BasketQuote`/`BasketTradeReport`,
   `testBasket`), CIP-0056-aligned `Token` interface (`testTokenInterface`), a
   live-seed variant (`npm run demo:cases`, `Init:richSeed`), a "Verify privacy"
@@ -209,7 +215,10 @@ stays `Bisik`, so template ids and the package-agnostic UI are unchanged. **v0.6
 now live on Devnet** (package `b0058535…`, parties `bisik-v6-*`): symmetric
 disclosure (`DealerDiscloseTo`), partial-Vickrey (`AwardPartial`), and every other
 write choice deploy on-ledger. All are surfaced in the desk UI and driven end-to-end
-by Playwright (`npm run e2e` 20/20 + `npm run e2e:actions` 16/16) — the two suites
-click every choice the model exposes. The rich deployment (settled trades across
+by Playwright — three suites clicking every choice the model exposes (`npm run e2e`
+20/20 + `npm run e2e:actions` 16/16 + `npm run e2e:bestexec` 8/8). **What CI gates:**
+the 22 Daml behavioural scripts (`daml test`) + JS syntax + the read-only proxy
+self-check run on every push; the Playwright suites need a live sandbox + browser, so
+they're run locally (not in CI). The rich deployment (settled trades across
 Treasuries/Gilts/Bunds/JGB/OAT/corporates/EM + baskets, all read views) stays live.
 - Live dashboard KPI tiles; functional in-app sidebar nav; Playwright video recorder.

@@ -191,12 +191,15 @@ it leaves to the trusted auctioneer:
   issuer is checked against the RFQ's expected issuers.
 - **Two settlement mechanisms, by design** (three rails counting partial fills):
   competitive `Award` (Vickrey second price) and direct bilateral OTC (settle one
-  dealer at its own ask), each settleable full or partial. The buyer chooses the
-  mechanism; either way it can only ever *overpay* a dealer, never underpay below the
-  ask, and a dealer may hold only one quote in an auction (enforced on-ledger in
-  `Award`). Removing the buyer's discretion entirely — forcing the *true* second
-  price with full-set inclusion — still needs a trusted auctioneer or MPC; that is
-  future work (and MPC would re-introduce exactly the cryptography Canton lets us skip).
+  dealer at its own ask), each settleable full or partial. The invariant is that a
+  dealer is **never paid below its own ask** (`SettleQuote` asserts `clearingPrice >=
+  price`); a dealer may hold only one quote in an auction (enforced on-ledger in
+  `Award`). Because the buyer curates the awarded quote set, it *can* suppress the
+  Vickrey uplift — award a subset so the winner clears at its own ask rather than the
+  true second price — so the guarantee is "at or above the winner's ask," not the full
+  Vickrey optimum. Forcing the *true* second price with full-set inclusion needs a
+  trusted auctioneer or MPC; that is future work (and MPC would re-introduce exactly
+  the cryptography Canton lets us skip).
 - Simple self-contained `Holding` token with issuer binding, not CIP-0056 — the
   token standard is the next step.
 - Single-round sealed bids. **Partial fills are supported** on both rails

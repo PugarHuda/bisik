@@ -73,8 +73,14 @@ export default async function handler(req, res) {
   // M2M token to enumerate any other party the token happens to have readAs for.
   if (path === 'v2/state/active-contracts') {
     const known = new Set(Object.values(PARTIES));
-    const asked = Object.keys(req.body?.filter?.filtersByParty ?? {});
-    if (!asked.length || !asked.every((p) => known.has(p)))
+    const filter = req.body?.filter ?? {};
+    const asked = Object.keys(filter.filtersByParty ?? {});
+    // Whitelist the filter SHAPE: the only allowed key is filtersByParty, and every
+    // party in it must be one of this desk's own. `filtersForAnyParty` (or any other
+    // filter key) is rejected — it would apply to every party the shared M2M token can
+    // readAs, i.e. other teams' contracts on the validator.
+    const extraKeys = Object.keys(filter).filter((k) => k !== 'filtersByParty');
+    if (!asked.length || !asked.every((p) => known.has(p)) || extraKeys.length)
       return res.status(403).json({ error: 'read-only demo: queries are scoped to the Bisik desk parties', readOnly: true });
   }
   if (!LEDGER) return res.status(500).json({ error: 'ledger not configured (set DEVNET_LEDGER_URL)' });

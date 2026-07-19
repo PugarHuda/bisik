@@ -162,6 +162,11 @@ async function submit(actAs, command) {
     } });
     if (r.ok) return r.data;
     last = `submit ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`;
+    // A duplicate means the ORIGINAL submit already committed on-ledger but its HTTP
+    // response was lost — retrying the same commandId 409s forever. Stop immediately
+    // with a clear message; the idempotent seeders skip the completed work on rerun.
+    if (/DUPLICATE_COMMAND/i.test(last))
+      throw new Error('command already committed (response lost) — rerun the idempotent seed to continue. ' + last);
     // 409 SEQUENCER_BACKPRESSURE = transient overload on the shared validator.
     if (![409, 503, 429, 500, 502, 504].includes(r.status)) throw new Error(last);
     process.stdout.write(` (retry ${r.status})`);
@@ -234,14 +239,27 @@ async function acsAs(party) {
 
 async function verify() {
   const p = JSON.parse(await readFile(join(HERE, 'devnet.parties.json'), 'utf8'));
+  const acs = {};
+  for (const role of ['buyer', 'dealerA', 'dealerB', 'regulator']) acs[role] = await acsAs(p[role]);
+  const quotesOf = (role) => acs[role].filter((e) => e.templateId.endsWith(':Bisik:Quote'));
   for (const role of ['buyer', 'dealerA', 'dealerB', 'regulator']) {
-    const ev = await acsAs(p[role]);
     const byTpl = {};
-    for (const e of ev) { const t = e.templateId.split(':').slice(-1)[0]; byTpl[t] = (byTpl[t] ?? 0) + 1; }
-    const quotes = ev.filter((e) => e.templateId.endsWith(':Bisik:Quote'))
-      .map((e) => e.createArgument.dealer.split('::')[0]);
-    console.log(role.padEnd(11), JSON.stringify(byTpl), quotes.length ? 'quotes from: ' + quotes.join(',') : '');
+    for (const e of acs[role]) { const t = e.templateId.split(':').slice(-1)[0]; byTpl[t] = (byTpl[t] ?? 0) + 1; }
+    const q = quotesOf(role).map((e) => e.createArgument.dealer.split('::')[0]);
+    console.log(role.padEnd(11), JSON.stringify(byTpl), q.length ? 'quotes from: ' + q.join(',') : '');
   }
+  // Assert the privacy invariants the desk claims — a real pass/fail, not just a dump.
+  const fails = [];
+  for (const d of ['dealerA', 'dealerB']) {
+    const rival = quotesOf(d).filter((e) => e.createArgument.dealer !== p[d]);
+    if (rival.length) fails.push(`${d} received ${rival.length} rival quote(s) — sub-transaction privacy broken`);
+  }
+  const regQuotes = quotesOf('regulator').length;
+  const regRfq = acs.regulator.filter((e) => e.templateId.endsWith(':Bisik:RFQ') || e.templateId.endsWith(':Bisik:BasketRFQ')).length;
+  if (regQuotes) fails.push(`regulator sees ${regQuotes} sealed quote(s) — must see none pre-trade`);
+  if (regRfq) fails.push(`regulator sees ${regRfq} live RFQ(s) — must see none pre-trade`);
+  if (fails.length) { console.error('\n✗ PRIVACY VERIFICATION FAILED:\n  ' + fails.join('\n  ')); process.exit(1); }
+  console.log('\n✓ privacy verified on-ledger: each dealer sees only its own quotes; the regulator sees zero pre-trade.');
 }
 
 // Add ONE prior settled trade (a separate instrument, GILT10) to the live desk, so

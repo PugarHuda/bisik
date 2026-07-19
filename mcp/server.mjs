@@ -135,9 +135,13 @@ async function handle(name, args) {
     if (!reg) return text('No regulator party configured (scripts/devnet.parties.json missing).');
     const ev = await acsAs(reg);
     const reports = ev.filter((e) => e.tpl === 'TradeReport');
-    if (!reports.length) return text('No settled trades yet. The regulator has zero visibility into live RFQs or sealed quotes.');
-    return text('Settled trades (regulator audit trail):\n' + reports.map((r) =>
-      `• ${r.arg.instrument} × ${r.arg.quantity} @ ${r.arg.clearingPrice} — dealer ${String(r.arg.dealer).split('::')[0]}`).join('\n'));
+    const baskets = ev.filter((e) => e.tpl === 'BasketTradeReport');
+    if (!reports.length && !baskets.length) return text('No settled trades yet. The regulator has zero visibility into live RFQs or sealed quotes.');
+    const lines = [
+      ...reports.map((r) => `• ${r.arg.instrument} × ${r.arg.quantity} @ ${r.arg.clearingPrice} — dealer ${String(r.arg.dealer).split('::')[0]}`),
+      ...baskets.map((r) => `• basket [${r.arg.legs.map((l) => `${l.instrument}×${l.quantity}`).join(' + ')}] @ ${r.arg.clearingPrice} — dealer ${String(r.arg.dealer).split('::')[0]}`),
+    ];
+    return text('Settled trades (regulator audit trail):\n' + lines.join('\n'));
   }
   if (name === 'party_view') {
     const party = resolveParty(args?.party);
@@ -160,7 +164,7 @@ async function handle(name, args) {
     const [bev, rev] = await Promise.all([acsAs(buyer), reg ? acsAs(reg) : Promise.resolve([])]);
     const openRfqs = bev.filter((e) => e.tpl === 'RFQ').length;
     const liveQuotes = bev.filter((e) => e.tpl === 'Quote').length;
-    const settled = rev.filter((e) => e.tpl === 'TradeReport').length;
+    const settled = rev.filter((e) => e.tpl === 'TradeReport' || e.tpl === 'BasketTradeReport').length;
     return text(`Desk snapshot:\n  open RFQs: ${openRfqs}\n  sealed quotes in flight (buyer view): ${liveQuotes}\n  settled trades: ${settled}`);
   }
   if (name === 'best_execution') {
