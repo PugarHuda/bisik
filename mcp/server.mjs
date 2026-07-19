@@ -104,6 +104,11 @@ const TOOLS = [
     description: 'High-level desk state from the regulator/buyer viewpoint: open RFQs and settled trades.',
     inputSchema: { type: 'object', properties: {} },
   },
+  {
+    name: 'best_execution',
+    description: "Provable best execution WITHOUT a public order book. For each settled trade the regulator can see, compare the executed clearing price against the sealed competing asks that were selectively disclosed to the regulator, and report whether the buyer's price beat every disclosed rival. This is the institutional payoff of Canton: confidential pre-trade, provable post-trade.",
+    inputSchema: { type: 'object', properties: {} },
+  },
 ];
 
 const text = (s) => ({ content: [{ type: 'text', text: s }] });
@@ -158,10 +163,35 @@ async function handle(name, args) {
     const settled = rev.filter((e) => e.tpl === 'TradeReport').length;
     return text(`Desk snapshot:\n  open RFQs: ${openRfqs}\n  sealed quotes in flight (buyer view): ${liveQuotes}\n  settled trades: ${settled}`);
   }
+  if (name === 'best_execution') {
+    const reg = resolveParty('regulator');
+    if (!reg) return text('No regulator party configured (scripts/devnet.parties.json missing).');
+    const ev = await acsAs(reg);
+    const reports = ev.filter((e) => e.tpl === 'TradeReport');
+    if (!reports.length) return text('No settled trades yet — nothing to attest.');
+    const disc = ev.filter((e) => e.tpl === 'QuoteDisclosure');
+    const byInst = {};
+    for (const d of disc) {
+      const unit = Number(d.arg.price) / Number(d.arg.quantity);
+      (byInst[d.arg.instrument] ??= []).push({ dealer: String(d.arg.dealer).split('::')[0], unit, price: Number(d.arg.price) });
+    }
+    const lines = reports.map((r) => {
+      const inst = r.arg.instrument;
+      const clrUnit = Number(r.arg.clearingPrice) / Number(r.arg.quantity);
+      const asks = (byInst[inst] ?? []).slice().sort((a, b) => a.unit - b.unit);
+      if (!asks.length) return `• ${inst} × ${r.arg.quantity} @ ${r.arg.clearingPrice} — no competing asks disclosed to the regulator; best execution not yet provable (reveal them on demand).`;
+      const winner = asks[0];
+      const ok = clrUnit + 1e-9 >= winner.unit && asks.every((x) => x === winner || x.unit + 1e-9 >= clrUnit);
+      const detail = asks.map((x) => `${x.dealer} ${x.price}${x === winner ? ' (winner, lowest)' : ''}`).join(', ');
+      return `• ${inst} × ${r.arg.quantity} @ ${r.arg.clearingPrice} — ${ok ? 'BEST EXECUTION ATTESTED ✓' : 'incomplete disclosure'}; disclosed asks: ${detail}`;
+    });
+    return text('Provable best execution (regulator view — no public order book):\n' + lines.join('\n') +
+      '\n\nEach line compares the executed price to the sealed asks the counterparties selectively disclosed to the regulator. Confidential pre-trade, provable post-trade — Canton selective disclosure.');
+  }
   throw new Error('unknown tool: ' + name);
 }
 
-const server = new Server({ name: 'bisik', version: '0.5.0' }, { capabilities: { tools: {} } });
+const server = new Server({ name: 'bisik', version: '0.6.0' }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   try { return await handle(req.params.name, req.params.arguments); }

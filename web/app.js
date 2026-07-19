@@ -330,11 +330,56 @@ function showView(v) {
   document.getElementById('view-audit').hidden = v !== 'audit';
   document.getElementById('view-portfolio').hidden = v !== 'portfolio';
   document.getElementById('view-verify').hidden = v !== 'verify';
+  document.getElementById('view-bestexec').hidden = v !== 'bestexec';
   const ht = document.getElementById('howto'); if (ht) ht.style.display = desk ? '' : 'none';
   document.querySelectorAll('.side-nav a[data-view]').forEach((a) => a.classList.toggle('on', a.dataset.view === v));
   if (v === 'audit') renderAudit();
   if (v === 'portfolio') renderPortfolio();
   if (v === 'verify') renderVerify();
+  if (v === 'bestexec') renderBestExec();
+}
+
+// Provable best execution — the institutional payoff. On a public exchange, best
+// execution is audited against a visible order book. Bisik has no public book, yet
+// the regulator can still prove it: from its own node it holds the settled trade
+// (TradeReport) plus whatever sealed asks the buyer/dealers selectively disclosed to
+// it, and confirms the executed price was no worse than any competing ask. Prices
+// are normalised per-unit so a partial fill compares cleanly to a full-lot ask.
+function renderBestExec() {
+  const el = document.getElementById('bestexec-body'); if (!el) return;
+  const reports = lastReg.filter((c) => is(c, 'TradeReport'));
+  const disc = lastReg.filter((c) => is(c, 'QuoteDisclosure'));
+  if (!reports.length) { el.innerHTML = '<div class="audit-empty">No settled trades yet — nothing to attest.</div>'; return; }
+  const byInst = {};
+  for (const d of disc) {
+    const unit = Number(d.arg.price) / Number(d.arg.quantity);
+    (byInst[d.arg.instrument] ??= []).push({ dealer: d.arg.dealer, unit, price: Number(d.arg.price) });
+  }
+  const cards = reports.map((r) => {
+    const inst = r.arg.instrument;
+    const clrUnit = Number(r.arg.clearingPrice) / Number(r.arg.quantity);
+    const asks = (byInst[inst] ?? []).slice().sort((a, b) => a.unit - b.unit);
+    const head = `<b>${esc(inst)}</b> · ${fmt(r.arg.quantity)} @ ${fmt(r.arg.clearingPrice)} <span class="hint">(${fmt(clrUnit)}/unit)</span>`;
+    if (!asks.length) {
+      return `<div class="be-card none"><div class="be-head">${head}</div>
+        <div class="be-note">No competing asks disclosed to the regulator for this instrument yet — the buyer or a dealer can reveal them on demand (⚖ Disclose to regulator) to make best execution provable, without ever showing a rival.</div></div>`;
+    }
+    const winner = asks[0];
+    const winnerOk = clrUnit + 1e-9 >= winner.unit;                 // paid ≥ the cheapest ask
+    const beatsField = asks.every((x) => x === winner || x.unit + 1e-9 >= clrUnit); // no rival cheaper than clearing
+    const ok = winnerOk && beatsField;
+    const rows = asks.map((x) => {
+      const isWin = x === winner;
+      const good = isWin || x.unit + 1e-9 >= clrUnit;
+      return `<tr class="be-${isWin ? 'win' : good ? 'ok' : 'bad'}"><td>${dealerLabel(x.dealer)}${isWin ? ' <span class="be-tag">winner</span>' : ''}</td><td class="num">${fmt(x.price)}</td><td class="num">${fmt(x.unit)}</td><td>${isWin ? 'lowest ask ✓' : good ? '≥ clearing ✓' : '⚠ below clearing'}</td></tr>`;
+    }).join('');
+    return `<div class="be-card ${ok ? 'ok' : 'warn'}">
+      <div class="be-head">${head}<span class="be-verdict ${ok ? 'ok' : 'warn'}">${ok ? '✓ best execution attested' : 'incomplete disclosure'}</span></div>
+      <table class="be-tbl"><thead><tr><th>Dealer — disclosed sealed ask</th><th>Ask</th><th>Per unit</th><th>vs clearing</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="be-note">${asks.length} competing ask(s) disclosed. The winner quoted the lowest ask; the buyer cleared at ${asks.length > 1 ? 'the runner-up’s price — the sealed Vickrey second price' : 'that ask'}. ${ok ? 'No disclosed dealer offered better than the executed price.' : 'Reveal the remaining sealed asks to complete the proof.'}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="be-intro">A public exchange audits best execution against a visible order book. Bisik has no public book — pre-trade stays confidential — yet the regulator still proves it, by checking the executed price against the sealed asks the counterparties chose to disclose to it. <b>Confidential pre-trade, provable post-trade.</b></div>` + cards;
 }
 // Live, on-ledger privacy proof: count what each party's node actually holds.
 function renderVerify() {
@@ -454,6 +499,7 @@ async function refresh() {
     if (!document.getElementById('view-audit')?.hidden) renderAudit();
     if (!document.getElementById('view-portfolio')?.hidden) renderPortfolio();
     if (!document.getElementById('view-verify')?.hidden) renderVerify();
+    if (!document.getElementById('view-bestexec')?.hidden) renderBestExec();
     setStats({ offset: off, rfqs: b.filter((c) => is(c, 'RFQ')).length,
       quotes: b.filter((c) => is(c, 'Quote')).length, settled });
     setLedger('ok', 'ledger live · pkg ' + (PKG ? PKG.slice(0, 8) : '—'));

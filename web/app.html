@@ -16,9 +16,11 @@
     <a href="#" data-view="portfolio"><span class="ic" aria-hidden="true">◈</span> Portfolio</a>
     <a href="#" data-view="verify"><span class="ic" aria-hidden="true">◉</span> Verify privacy</a>
     <a href="#" data-view="audit"><span class="ic" aria-hidden="true">✓</span> Audit trail</a>
+    <a href="#" data-view="bestexec"><span class="ic" aria-hidden="true">⚖</span> Best execution</a>
     <div class="side-sep" aria-hidden="true"></div>
     <a href="/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">↗</span> Landing page</a>
     <a href="https://github.com/PugarHuda/bisik" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">↗</span> GitHub</a>
+    <a href="https://app.devnet.seaport.to" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">↗</span> Devnet explorer</a>
     <a href="https://github.com/PugarHuda/bisik#readme" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">≡</span> Docs</a>
   </nav>
   <div class="side-foot">
@@ -119,6 +121,15 @@
     <h2 class="audit-title">Verify the privacy — live, on-ledger
       <span class="hint">this queries what each party's node actually received from the ledger; it is not the UI filtering anything</span></h2>
     <div id="verify-body"></div>
+  </section>
+
+  <!-- Best-execution view: a regulator-side proof that the executed clearing price
+       beat every competing ask the buyer or dealer disclosed. Provable best
+       execution via selective disclosure — the institutional payoff of Canton. -->
+  <section class="audit-view" id="view-bestexec" hidden>
+    <h2 class="audit-title">Provable best execution
+      <span class="hint">the regulator confirms the executed price against the sealed asks it was shown — no public order book needed</span></h2>
+    <div id="bestexec-body"></div>
   </section>
 </div>
 
