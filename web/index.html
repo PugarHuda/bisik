@@ -126,14 +126,22 @@
   .hero{ position:relative; border-bottom:2px solid var(--line); overflow:hidden }
   .hero::before{ display:none }                     /* flat — no radial glow */
   .hero-fx{ position:absolute; inset:0; z-index:0; display:block; width:100%; height:100% }
-  .hero .wrap{ position:relative; z-index:1; display:grid; grid-template-columns:1.02fr .98fr; gap:52px; align-items:center }
-  @media(max-width:940px){ .hero .wrap{ grid-template-columns:1fr; gap:40px } }
-  .hero h1{ font-weight:800; letter-spacing:-.045em }
-  /* the ticket: an off-white physical trade ticket sitting in the dark terminal */
+  /* centered hero (reference layout): pill · headline · lede · CTAs · the ticket */
+  .hero .wrap{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding-top:66px; padding-bottom:78px }
+  .hero-copy{ display:flex; flex-direction:column; align-items:center; gap:22px; max-width:820px }
+  .hero-pill{ display:inline-flex; align-items:center; gap:8px; border:2px solid var(--line); background:var(--card);
+    color:var(--muted); font-size:12.5px; font-weight:700; letter-spacing:.04em; padding:7px 15px; text-transform:uppercase }
+  .hero-pill::first-letter{ color:var(--accent) }
+  .hero h1{ font-weight:800; letter-spacing:-.045em; margin:0 }
+  .hero .lede{ margin:0 auto; max-width:60ch; text-align:center }
+  .hero .cta{ justify-content:center; margin:6px 0 0 }
+  .hero .chips{ justify-content:center; margin:2px 0 0 }
+  /* the ticket: an off-white physical trade ticket, centered in the signal field */
   .ticket{ background:var(--paper); color:#141414; border:2px solid #141414; box-shadow:12px 12px 0 var(--shadow);
     font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace; font-size:13px; line-height:1.5;
-    transform:rotate(-1.3deg); position:relative; justify-self:end; max-width:440px; width:100% }
-  @media(max-width:940px){ .ticket{ transform:none; justify-self:start; margin-top:6px } }
+    transform:rotate(-1.3deg); position:relative; margin:44px auto 0; max-width:460px; width:100% }
+  @media(max-width:520px){ .ticket{ transform:none } }
   .t-head{ display:flex; justify-content:space-between; align-items:center; gap:12px;
     padding:12px 16px; border-bottom:2px solid #141414; font-weight:800; letter-spacing:.03em; font-size:12.5px }
   .t-id{ color:#7a756a; font-weight:600 }
@@ -175,7 +183,7 @@
 
 <header class="hero"><canvas class="hero-fx" aria-hidden="true"></canvas><div class="wrap">
   <div class="hero-copy">
-    <div class="eyebrow">Confidential · Multi-dealer RFQ · Canton</div>
+    <div class="hero-pill">● Confidential multi-dealer RFQ · live on Canton Devnet</div>
     <h1>Whisper your quotes.<br><span class="g">The market hears nothing.</span></h1>
     <p class="lede">A sealed-bid OTC block-trading desk, native on Canton. A rival dealer never
       receives your quote — the ledger doesn't transmit it. Losing bids are archived, never
@@ -293,7 +301,7 @@
   let W=0,H=0,DPR=1,glowP=[],sparkP=[],raf=0;
   const rnd=(a,b)=>a+Math.random()*(b-a);
   const gauss=()=>(Math.random()+Math.random()+Math.random()-1.5)/1.5;
-  const band=x=>H*0.72 - x*0.20;                 /* diagonal stream line */
+  const band=x=>H*0.78 - x*0.10;                 /* diagonal stream line */
   /* pre-rendered soft green glow sprite — cheap to stamp many times (the nebula haze) */
   const spr=document.createElement('canvas'); spr.width=spr.height=64;
   (function(){ const g=spr.getContext('2d'), rad=g.createRadialGradient(32,32,0,32,32,32);
@@ -301,13 +309,13 @@
     rad.addColorStop(1,'rgba(90,220,170,0)'); g.fillStyle=rad; g.fillRect(0,0,64,64); })();
   function pos(fromLeft,spread){ const x=fromLeft?rnd(-0.06*W,0):rnd(0,W);
     return { x, y:band(x)+gauss()*H*spread, vx:rnd(0.08,0.28)*DPR, vy:rnd(-0.09,-0.01)*DPR, tw:rnd(0,6.28) }; }
-  function mkGlow(fl){ const p=pos(fl,0.13); p.s=rnd(30,90)*DPR; p.a=rnd(0.05,0.16); p.ts=rnd(0.004,0.012); return p; }
-  function mkSpark(fl){ const stream=Math.random()<0.8; const p=pos(fl, stream?0.13:0.45);
-    if(!stream){ p.y=rnd(0,H); } p.r=rnd(0.4,1.5)*DPR; p.a=rnd(0.15,0.7); p.ts=rnd(0.01,0.035); return p; }
+  function mkGlow(fl){ const p=pos(fl,0.20); p.s=rnd(40,120)*DPR; p.a=rnd(0.06,0.18); p.ts=rnd(0.004,0.012); return p; }
+  function mkSpark(fl){ const stream=Math.random()<0.82; const p=pos(fl, stream?0.19:0.5);
+    if(!stream){ p.y=rnd(0,H); } p.r=rnd(0.4,1.6)*DPR; p.a=rnd(0.15,0.72); p.ts=rnd(0.01,0.035); return p; }
   function size(){ DPR=Math.min(devicePixelRatio||1,2); const r=c.getBoundingClientRect();
     W=c.width=Math.max(1,r.width*DPR); H=c.height=Math.max(1,r.height*DPR);
     const A=r.width*r.height; glowP=[]; sparkP=[];
-    const ng=Math.min(130,Math.floor(A/5200)), ns=Math.min(1300,Math.floor(A/760));
+    const ng=Math.min(210,Math.floor(A/2500)), ns=Math.min(2500,Math.floor(A/400));
     for(let i=0;i<ng;i++) glowP.push(mkGlow(false));
     for(let i=0;i<ns;i++) sparkP.push(mkSpark(false));
   }
