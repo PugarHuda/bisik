@@ -90,7 +90,7 @@ Prizes are awarded to the top 3 *across all tracks*, and Bisik is deliberately b
 - Live product: **https://bisik-eight.vercel.app** — hosted read-only desk over
   live Canton Devnet state (three party views prove the privacy model; actions are
   disabled on the public URL). Full interactive: `npm run demo` (local).
-- Deployed on Canton Devnet: package `5e851293…`, parties `bisik-v5-*` on the shared
+- Deployed on Canton Devnet: package `b0058535…`, parties `bisik-v6-*` on the shared
   5N validator (`https://ledger-api.validator.devnet.sandbox.fivenorth.io`); the
   contracts are also visible in Seaport's contract explorer for the encode-hackathon org.
 - Demo video: _(record from `DEMO-VO.md` — read-aloud 3-min script — then paste the link here)_.

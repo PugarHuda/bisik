@@ -200,13 +200,16 @@ UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
   (`Quote.DiscloseTo` → `QuoteDisclosure`, `testSelectiveDisclosure`) — the buyer
   reveals one sealed quote to an auditor on demand, never to rivals or the public.
 
-**Known scope — Canton smart-contract-upgrade (SCU):** the deployed Devnet package
-is **v0.5.0** (`5e851293`). The newest write-path features (`AwardPartial`,
-`DiscloseTo`) live in the repo + local demo but were **not redeployed** as a v0.6.0
-upgrade: an in-package interface (`Bisik:Token`) changes package id per version, so
-Canton's SCU check rejects any same-name `bisik` v0.6.0 as an invalid upgrade of
-v0.5.0 ("interface implementation appears in old package but not new"). The proper
-fix is to move the interface to a separate, stable package; for the hackathon these
-features are demonstrated locally (they're writes, unusable on the read-only hosted
-URL anyway). The rich v0.5.0 deployment (15 settled trades, all read views) stays live.
+**Canton smart-contract-upgrade (SCU) — solved by fresh package lineage:** the
+in-package `Bisik:Token` interface changes package id per version, so Canton's SCU
+check refuses to upgrade a same-name `bisik` package (`NOT_VALID_UPGRADE_PACKAGE`).
+The fix shipped: **rename the package to `bisik-otc` (v0.6.0)** — a new name is a new
+upgrade lineage, not an in-place upgrade, so the check never applies. The module
+stays `Bisik`, so template ids and the package-agnostic UI are unchanged. **v0.6.0 is
+now live on Devnet** (package `b0058535…`, parties `bisik-v6-*`): symmetric
+disclosure (`DealerDiscloseTo`), partial-Vickrey (`AwardPartial`), and every other
+write choice deploy on-ledger. All are surfaced in the desk UI and driven end-to-end
+by Playwright (`npm run e2e` 20/20 + `npm run e2e:actions` 16/16) — the two suites
+click every choice the model exposes. The rich deployment (settled trades across
+Treasuries/Gilts/Bunds/JGB/OAT/corporates/EM + baskets, all read views) stays live.
 - Live dashboard KPI tiles; functional in-app sidebar nav; Playwright video recorder.
