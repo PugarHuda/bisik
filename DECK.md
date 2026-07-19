@@ -1,6 +1,7 @@
 # Bisik — pitch deck outline
 
-Build on Canton Hackathon · Private DeFi & Capital Markets. ~10 slides.
+Build on Canton Hackathon · Private DeFi & Capital Markets. ~11 slides.
+(Authoritative deck: `slides/index.html` → `slides/bisik-deck.pdf`. This is the outline.)
 
 ---
 
@@ -38,7 +39,16 @@ in the `Award` choice on-ledger (not a trusted operator). Settlement = atomic
 DvP — both legs or neither. The contract also guarantees no dealer is paid below
 their ask and that escrowed collateral can't be pulled back mid-auction.
 
-**6 · Why Canton — the differentiator (the table)**
+**6 · Provable best execution (the institutional payoff)**
+A public exchange audits best execution against a visible order book. Bisik has
+none — pre-trade stays confidential — yet the regulator still proves it: either
+side can *selectively disclose* a sealed ask to the regulator on demand (never to
+rivals), and the desk confirms the winner quoted the lowest ask and the buyer paid
+no worse than any competitor. **Live on Devnet: 10 green attestations across all
+three rails** (Vickrey, direct OTC, partial fill). Confidential pre-trade, *provable*
+post-trade. [Screenshot: the Best-execution view.]
+
+**7 · Why Canton — the differentiator (the table)**
 I built this exact product four times before, each fighting the chain's
 transparency:
 
@@ -54,13 +64,13 @@ On Canton, "rivals can't see the quote" is `signatory`/`observer`. ~40 lines of
 Daml replaces thousands of lines of cryptography. This is the case *for* Canton,
 made by someone who tried the alternatives.
 
-**7 · Real-world fit**
+**8 · Real-world fit**
 RFQ is how Tradeweb / Bloomberg actually run OTC — and Tradeweb is a Canton Super
 Validator. Bisik is that institutional workflow, native, with privacy guaranteed
 by the protocol and a regulator-observable audit trail. Maps to the track's
 "OTC trading workflows" and "credible relevance to institutional markets."
 
-**8 · Technical execution**
+**9 · Technical execution**
 - Clean two-package Daml (model DAR carries no test/script bloat).
 - Escrow-backed atomic DvP; reverse-Vickrey clearing computed on-ledger in `Award`.
 - End-to-end `daml test` incl. explicit privacy assertions (Dealer B cannot
@@ -68,14 +78,15 @@ by the protocol and a regulator-observable audit trail. Maps to the track's
 - Web desk over the JSON Ledger API; verified live against a Canton participant.
 - Deployed on Canton Devnet.
 
-**9 · Honest scope / roadmap**
-Shipped: two settlement modes (competitive Vickrey + direct bilateral OTC) with
-partial fills; one-quote-per-dealer enforced on-ledger. Ahead: multi-instrument
-baskets / multi-round; a CIP-0056 token standard for the legs (wallet interop,
-real DvP); and — to force the true second price even against a self-interested
-buyer — a trusted auctioneer or MPC (the latter would re-introduce exactly the
-cryptography Canton lets us skip).
+**10 · Honest scope / roadmap**
+Shipped: three settlement rails (competitive Vickrey + direct bilateral OTC + partial
+fills on both); one-quote-per-dealer enforced on-ledger; multi-instrument baskets;
+symmetric selective disclosure; and provable best execution across all three rails.
+Ahead: a CIP-0056 token standard for the legs (wallet interop, real DvP); and — to
+force the true second price even against a self-interested buyer — a trusted
+auctioneer or MPC (the latter would re-introduce exactly the cryptography Canton
+lets us skip).
 
-**10 · Close**
+**11 · Close**
 Bisik. The confidential OTC desk that finally didn't need a cryptography stack —
 because Canton already is one. *Live on Devnet · github.com/PugarHuda/bisik · bisik-eight.vercel.app*
