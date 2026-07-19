@@ -88,6 +88,8 @@ const check = (name, cond, detail = '') => {
   await setView('verify');
   check('Verify-privacy verdict = verified', (await txt('.vf-verdict')).includes('verified'));
   check('Verify-privacy shows 3 green checks', (await p.locator('.vf-badge.ok').count()) === 3);
+  check('leak-contrast panel renders 5 comparison rows', (await p.locator('.vf-cmp tbody tr').count()) === 5);
+  check('Canton leak tally reads 0', (await txt('.vf-stat.safe .vf-num')) === '0');
   await setView('audit');
   check('Audit trail lists the settled trade', (await txt('#audit-table')).includes('TBOND30'));
   await setDesk();

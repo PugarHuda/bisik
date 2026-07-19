@@ -172,6 +172,21 @@ table.audit td.mode { color: var(--accent); font-size: 12px; }
 .vf-badge.ok { background: var(--accent-dim); color: var(--accent); }
 .vf-badge.bad { background: #3a1f1f; color: var(--dealerB); }
 .vf-note { margin-top: 22px; max-width: 1050px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.vf-note code { font-family: ui-monospace, Menlo, monospace; color: var(--accent); background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
+/* Out-of-the-box: the "what a public chain would leak" contrast panel. */
+.vf-contrast { margin-top: 40px; max-width: 1150px; border-top: 1px solid var(--line); padding-top: 28px; }
+.vf-contrast h3 { font-size: 17px; color: var(--ink); margin: 0 0 18px; }
+.vf-tally { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.vf-stat { flex: 1; min-width: 260px; display: flex; align-items: center; gap: 16px; border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
+.vf-stat .vf-num { font-size: 40px; font-weight: 800; font-family: ui-monospace, Menlo, monospace; line-height: 1; }
+.vf-stat.leak { background: #3a1f1f; border-color: #5a2f2f; } .vf-stat.leak .vf-num { color: var(--dealerB); }
+.vf-stat.safe { background: var(--accent-dim); border-color: var(--accent-dim); } .vf-stat.safe .vf-num { color: var(--accent); }
+.vf-cmp { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.vf-cmp th { text-align: left; color: var(--muted); font-weight: 600; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.vf-cmp td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.vf-cmp td.k { color: var(--ink); font-weight: 600; width: 30%; }
+.vf-cmp td.leak { color: var(--dealerB); }
+.vf-cmp td.safe { color: var(--accent); }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 .side .ledger {
   margin: 0; font-size: 11px; color: var(--muted);

@@ -358,6 +358,35 @@ function renderVerify() {
     + row('Regulator’s node', `holds <b>${regTrades}</b> settled trade(s), <b>${regQuotes}</b> sealed quotes, <b>${regRfq}</b> live RFQ(s). Pre-trade visibility: <b>none</b>.`, regQuotes === 0 && regRfq === 0)
     + '</div>'
     + '<div class="vf-note">Each figure is the number of contracts that party’s participant node actually holds — queried live over the JSON Ledger API, not filtered by this UI. A rival dealer’s quote isn’t hidden from the screen; it was never transmitted to that node. That is Canton sub-transaction privacy — no ZK proofs, no FHE, no TEE.</div>';
+
+  // Out-of-the-box: quantify the differentiator. Count what a transparent chain
+  // would be leaking into its public mempool at THIS instant vs what Canton
+  // actually transmits to any non-counterparty (zero), then map the leak surface
+  // to the cryptography our four earlier builds needed and Canton makes free.
+  const buyerQuotes = lastAcs.buyer.filter((c) => is(c, 'Quote') || is(c, 'BasketQuote')).length;
+  const buyerRfqs = lastAcs.buyer.filter((c) => is(c, 'RFQ') || is(c, 'BasketRFQ')).length;
+  const wouldLeak = buyerQuotes + buyerRfqs;
+  const actualLeak = a.rival + b.rival;
+  const cmp = [
+    ['RFQ — who is trading, what size', 'broadcast to the public mempool', 'never emitted off the parties'],
+    ['Competing dealers’ quotes', 'visible → front-run, quote-fade', 'sealed; never sent to a rival’s node'],
+    ['Losing bids', 'on-chain forever', 'archived, never revealed'],
+    ['Counterparties', 'public addresses', 'only the two principals + a chosen regulator'],
+    ['Privacy machinery needed', 'ZK circuits · FHE · TEE · threshold enc.', 'none — it is the ledger model'],
+  ];
+  el.innerHTML += `
+    <div class="vf-contrast">
+      <h3>What a transparent chain would leak — right now</h3>
+      <div class="vf-tally">
+        <div class="vf-stat leak"><span class="vf-num">${wouldLeak}</span><span>live quotes + RFQs a public L1 would expose in its mempool this instant</span></div>
+        <div class="vf-stat safe"><span class="vf-num">${actualLeak}</span><span>actually transmitted to any non-counterparty on Canton</span></div>
+      </div>
+      <table class="vf-cmp">
+        <thead><tr><th></th><th>Public L1 (Ethereum · Sui · Stellar…)</th><th>Canton — Bisik</th></tr></thead>
+        <tbody>${cmp.map(([k, l, s]) => `<tr><td class="k">${k}</td><td class="leak">${l}</td><td class="safe">${s}</td></tr>`).join('')}</tbody>
+      </table>
+      <div class="vf-note">We built this same confidential OTC desk four times before Canton — each time bolting on the exact cryptography that middle column names: a TEE (<b>Diam</b>), two ZK circuits (<b>Segel</b>), Seal threshold encryption (<b>Sealed&nbsp;Pair</b>), FHE (<b>Samar</b>). On Canton the privacy is a <code>signatory</code> / <code>observer</code> declaration — same product, zero cryptography.</div>
+    </div>`;
 }
 // Portfolio: each party's holdings, aggregated by instrument.
 function renderPortfolio() {
