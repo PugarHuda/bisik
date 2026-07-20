@@ -1,0 +1,40 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1600
+PlayResY: 900
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Kar,Arial,34,&H00FFFFFF,&H007F8A96,&H00120C06,&HA0000000,1,0,0,0,100,100,0,0,1,3,1,2,90,90,44,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:05.24,0:00:17.82,Kar,,0,0,0,,{\kf41}When {\kf24}an {\kf97}institution {\kf49}moves {\kf16}a {\kf49}large {\kf49}block {\kf24}of {\kf49}bonds, {\kf24}it {\kf57}cannot {\kf57}simply {\kf41}post {\kf24}it {\kf8}— {\kf32}the {\kf57}moment {\kf32}the {\kf49}order {\kf32}and {\kf32}the {\kf81}competing {\kf41}bids {\kf32}are {\kf65}visible, {\kf32}the {\kf57}market {\kf81}front-runs {\kf26}it.
+Dialogue: 0,0:00:17.82,0:00:22.40,Kar,,0,0,0,,{\kf40}Bisik {\kf20}is {\kf13}a {\kf86}confidential {\kf100}over-the-counter {\kf33}desk {\kf40}built {\kf60}natively {\kf20}on {\kf46}Canton.
+Dialogue: 0,0:00:22.40,0:00:25.66,Kar,,0,0,0,,{\kf27}You {\kf54}whisper {\kf48}quotes, {\kf27}and {\kf27}the {\kf48}market {\kf41}hears {\kf54}nothing.
+Dialogue: 0,0:00:25.66,0:00:30.24,Kar,,0,0,0,,{\kf18}We {\kf31}have {\kf37}built {\kf31}this {\kf31}same {\kf49}product {\kf31}four {\kf37}times {\kf43}before, {\kf18}on {\kf31}four {\kf61}different {\kf40}chains.
+Dialogue: 0,0:00:30.24,0:00:37.50,Kar,,0,0,0,,{\kf43}Every {\kf36}time, {\kf36}most {\kf22}of {\kf29}the {\kf36}work {\kf29}was {\kf93}cryptography {\kf65}fighting {\kf29}the {\kf50}ledger. {\kf22}On {\kf50}Canton, {\kf36}that {\kf72}machinery {\kf78}disappears.
+Dialogue: 0,0:00:37.50,0:00:43.82,Kar,,0,0,0,,{\kf37}Let {\kf27}me {\kf46}show {\kf37}you {\kf37}the {\kf46}desk {\kf64}itself, {\kf73}running {\kf73}against {\kf18}a {\kf46}live {\kf64}Canton {\kf64}ledger.
+Dialogue: 0,0:00:43.82,0:00:50.88,Kar,,0,0,0,,{\kf47}These {\kf47}three {\kf62}columns {\kf31}are {\kf31}one {\kf54}ledger {\kf39}seen {\kf23}by {\kf47}three {\kf62}parties: {\kf16}a {\kf47}buyer {\kf31}and {\kf31}two {\kf78}competing {\kf60}dealers.
+Dialogue: 0,0:00:50.88,0:00:54.86,Kar,,0,0,0,,{\kf30}Each {\kf42}column {\kf36}shows {\kf30}only {\kf30}what {\kf30}that {\kf42}party’s {\kf24}own {\kf30}node {\kf53}actually {\kf51}received.
+Dialogue: 0,0:00:54.86,0:01:02.62,Kar,,0,0,0,,{\kf30}The {\kf45}buyer {\kf45}opens {\kf15}a {\kf60}request {\kf30}for {\kf45}quote: {\kf15}a {\kf83}thirty-year {\kf68}treasury, {\kf30}one {\kf68}thousand {\kf45}units, {\kf38}paid {\kf23}in {\kf75}tokenised {\kf61}dollars.
+Dialogue: 0,0:01:02.62,0:01:03.19,Kar,,0,0,0,,{\kf4}The {\kf7}market {\kf6}never {\kf5}sees {\kf5}this. {\kf5}Only {\kf4}the {\kf8}invited {\kf8}dealers {\kf5}do.
+Dialogue: 0,0:01:03.19,0:01:14.68,Kar,,0,0,0,,{\kf77}Dealer {\kf22}A {\kf44}now {\kf55}sees {\kf44}the {\kf88}request, {\kf44}and {\kf88}answers {\kf55}with {\kf22}a {\kf77}sealed {\kf66}quote {\kf11}— {\kf55}four {\kf88}million, {\kf44}two {\kf88}hundred {\kf44}and {\kf44}ten {\kf93}thousand.
+Dialogue: 0,0:01:14.68,0:01:17.28,Kar,,0,0,0,,{\kf49}Watch {\kf41}what {\kf65}happens {\kf24}on {\kf33}the {\kf48}right.
+Dialogue: 0,0:01:17.28,0:01:23.50,Kar,,0,0,0,,{\kf50}Dealer {\kf29}B's {\kf50}column {\kf21}is {\kf43}empty. {\kf29}Not {\kf14}a {\kf50}masked {\kf29}row. {\kf29}Not {\kf14}a {\kf71}hidden-bid {\kf86}placeholder. {\kf57}Nothing {\kf21}at {\kf29}all.
+Dialogue: 0,0:01:23.50,0:01:33.88,Kar,,0,0,0,,{\kf56}Dealer {\kf32}A's {\kf48}quote {\kf32}was {\kf48}never {\kf97}transmitted {\kf24}to {\kf56}Dealer {\kf32}B's {\kf40}node. {\kf40}That {\kf24}is {\kf32}not {\kf32}the {\kf80}interface {\kf56}hiding {\kf24}it {\kf8}— {\kf24}it {\kf24}is {\kf32}the {\kf56}ledger {\kf48}never {\kf64}sending {\kf29}it.
+Dialogue: 0,0:01:33.88,0:01:41.72,Kar,,0,0,0,,{\kf57}Dealer {\kf16}B {\kf57}quotes {\kf33}too {\kf8}— {\kf41}four {\kf65}million, {\kf33}two {\kf65}hundred {\kf33}and {\kf49}fifty {\kf74}thousand {\kf8}— {\kf90}completely {\kf49}blind {\kf25}to {\kf33}its {\kf48}rival.
+Dialogue: 0,0:01:41.72,0:01:46.90,Kar,,0,0,0,,{\kf29}The {\kf43}buyer {\kf29}now {\kf43}holds {\kf36}both {\kf50}sealed {\kf50}quotes. {\kf58}Neither {\kf50}dealer {\kf29}can {\kf29}see {\kf29}the {\kf43}other.
+Dialogue: 0,0:01:46.90,0:01:55.30,Kar,,0,0,0,,{\kf59}Either {\kf42}side {\kf34}can {\kf59}reveal {\kf34}one {\kf59}sealed {\kf51}quote {\kf25}to {\kf17}a {\kf85}regulator {\kf25}on {\kf59}demand {\kf8}— {\kf51}never {\kf25}to {\kf17}a {\kf51}rival, {\kf51}never {\kf25}in {\kf63}public.
+Dialogue: 0,0:01:55.30,0:02:04.34,Kar,,0,0,0,,{\kf30}Now {\kf30}the {\kf45}buyer {\kf53}awards. {\kf30}The {\kf68}cheapest {\kf53}dealer {\kf38}wins {\kf8}— {\kf30}but {\kf23}is {\kf38}paid {\kf30}the {\kf53}second {\kf45}price, {\kf38}four {\kf60}million {\kf30}two {\kf60}hundred {\kf30}and {\kf45}fifty {\kf67}thousand.
+Dialogue: 0,0:02:04.34,0:02:09.88,Kar,,0,0,0,,{\kf39}Cash {\kf31}and {\kf39}bond {\kf39}move {\kf23}in {\kf16}a {\kf55}single {\kf55}atomic {\kf94}transaction: {\kf39}both {\kf39}legs, {\kf23}or {\kf62}neither.
+Dialogue: 0,0:02:09.88,0:02:15.84,Kar,,0,0,0,,{\kf29}You {\kf36}don’t {\kf36}have {\kf22}to {\kf43}trust {\kf29}the {\kf57}privacy. {\kf36}This {\kf36}view {\kf57}queries {\kf36}what {\kf36}each {\kf36}node {\kf65}actually {\kf42}holds:
+Dialogue: 0,0:02:15.84,0:02:21.96,Kar,,0,0,0,,{\kf36}each {\kf50}dealer {\kf36}sees {\kf36}only {\kf29}its {\kf29}own {\kf43}quote, {\kf29}and {\kf29}the {\kf72}regulator {\kf36}sees {\kf58}nothing {\kf50}before {\kf79}settlement.
+Dialogue: 0,0:02:21.96,0:02:28.90,Kar,,0,0,0,,{\kf32}This {\kf19}is {\kf32}what {\kf83}institutions {\kf57}actually {\kf32}need. {\kf13}A {\kf45}public {\kf57}exchange {\kf45}proves {\kf32}best {\kf64}execution {\kf51}against {\kf13}a {\kf51}visible {\kf38}order {\kf30}book.
+Dialogue: 0,0:02:28.90,0:02:36.12,Kar,,0,0,0,,{\kf47}Bisik {\kf31}has {\kf23}no {\kf47}order {\kf39}book {\kf8}— {\kf31}and {\kf47}still {\kf54}proves {\kf23}it, {\kf39}from {\kf31}the {\kf54}sealed {\kf39}asks {\kf78}disclosed {\kf23}to {\kf31}the {\kf77}regulator.
+Dialogue: 0,0:02:36.12,0:02:51.06,Kar,,0,0,0,,{\kf31}The {\kf39}same {\kf39}desk {\kf39}runs {\kf101}autonomously: {\kf31}two {\kf93}market-maker {\kf54}agents {\kf47}quote {\kf47}blind {\kf23}to {\kf39}each {\kf47}other, {\kf16}a {\kf47}buyer {\kf47}agent {\kf54}awards, {\kf31}and {\kf16}a {\kf39}real {\kf47}trade {\kf62}settles {\kf23}on {\kf54}Devnet {\kf23}at {\kf31}the {\kf54}second {\kf47}price {\kf8}— {\kf39}with {\kf23}no {\kf47}human {\kf23}in {\kf31}the {\kf62}pricing {\kf40}loop.
+Dialogue: 0,0:02:51.06,0:02:55.03,Kar,,0,0,0,,{\kf14}None {\kf8}of {\kf14}this {\kf8}is {\kf6}a {\kf19}mock-up. {\kf25}Forty-one {\kf22}settled {\kf19}trades, {\kf14}five {\kf19}atomic {\kf22}baskets {\kf11}and {\kf22}sixteen {\kf39}best-execution {\kf36}attestations {\kf11}are {\kf14}live {\kf8}on {\kf19}Canton {\kf19}Devnet {\kf17}right {\kf11}now.
+Dialogue: 0,0:02:55.03,0:03:02.32,Kar,,0,0,0,,{\kf41}Bisik {\kf7}— {\kf27}the {\kf88}confidential {\kf27}OTC {\kf34}desk {\kf34}that {\kf54}finally {\kf41}didn’t {\kf34}need {\kf14}a {\kf88}cryptography {\kf41}stack, {\kf54}because {\kf47}Canton {\kf54}already {\kf20}is {\kf24}one.
