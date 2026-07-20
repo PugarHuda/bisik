@@ -188,6 +188,17 @@ function renderBuyer(mine) {
       </div>`;
     }).join('');
 
+    // Settlement takes ONE cash holding (SettleQuote/Award pass a single cashCid). If the
+    // buyer's cash is split so no single holding covers the clearing price — even though
+    // the total does — Accept/Award vanish. Say so, instead of leaving the buttons silently
+    // gone. (A production build would add a Holding.Merge choice.)
+    const usdc = mine.filter((h) => is(h, 'Holding') && h.arg.owner === P.buyer && h.arg.instrument === rfq.arg.payInstrument);
+    const totalCash = usdc.reduce((s, h) => s + Number(h.arg.amount), 0);
+    const maxCash = usdc.reduce((m, h) => Math.max(m, Number(h.arg.amount)), 0);
+    if (maxCash < clearing && totalCash >= clearing) {
+      box.innerHTML += `<div class="blind" style="text-align:left;font-style:normal">⚠ Your ${esc(rfq.arg.payInstrument)} is split across ${usdc.length} holdings — the largest is ${fmt(maxCash)}, but the ${fmt(clearing)} clearing price needs one holding to cover it. Total held: ${fmt(totalCash)}. (Settlement passes a single cash holding.)</div>`;
+    }
+
     const cash = mine.find((c) => is(c, 'Holding') && c.arg.owner === P.buyer
       && c.arg.instrument === rfq.arg.payInstrument && Number(c.arg.amount) >= clearing);
     if (rfq && cash) awardable = { rfqCid: rfq.cid, tpl: rfq.tpl, quoteCids: sorted.map((c) => c.cid), cashCid: cash.cid, qty: Number(rfq.arg.quantity) };
