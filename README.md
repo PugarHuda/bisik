@@ -217,7 +217,7 @@ it leaves to the trusted auctioneer:
 - The desk's legs use a self-contained `Holding` token with issuer binding (plus a
   CIP-0056-aligned `Token` interface). A fuller, **CIP-0056-shaped token standard is
   now implemented and live on Devnet** as a separate package (`token-standard/`,
-  package `d3b7c07e…`): a `Holding` interface + a two-step `TransferInstruction` +
+  package `05e4ebb9…`): a `Holding` interface + a two-step `TransferInstruction` +
   an `Allocation` for atomic DvP, each threading a `Metadata` map — verified on-ledger
   (`npm run token:demo`) and by four `daml test` scripts. Full cross-package registry
   interop (external-wallet `TransferFactory`/`AllocationFactory` discovery via the

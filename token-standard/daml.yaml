@@ -1,5 +1,5 @@
 sdk-version: 3.4.11
-name: bisik-token-standard
+name: bisik-token-standard-v3
 version: 0.1.0
 source: daml
 # A native, CIP-0056-shaped token standard (Canton Network Token Standard core

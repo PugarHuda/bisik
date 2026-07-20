@@ -17,7 +17,7 @@ function loadEnv() {
 const ENV = loadEnv();
 const LEDGER = (ENV.LEDGER_JSON_URL ?? ENV.DEVNET_LEDGER_URL ?? 'http://localhost:7575').replace(/\/$/, '');
 const USER = ENV.LEDGER_USER_ID ?? (ENV.DEVNET_TOKEN_URL ? '6' : 'participant_admin');
-const PKG = ENV.BISIK_TOKEN_PKG ?? 'd3b7c07e37bc6667ddf0cc3a66260b729f371520af75e5a3a5f6c1735bc52284';
+const PKG = ENV.BISIK_TOKEN_PKG ?? '05e4ebb9573dfa44261772a0c6eb40e6f72acc7e959d3eb7a34716c91f9d3b65';
 const P = JSON.parse(readFileSync(join(HERE, 'devnet.parties.json'), 'utf8'));
 const OAUTH = ENV.DEVNET_TOKEN_URL ? { url: ENV.DEVNET_TOKEN_URL, clientId: ENV.DEVNET_CLIENT_ID,
   clientSecret: ENV.DEVNET_CLIENT_SECRET, audience: ENV.DEVNET_AUDIENCE, scope: ENV.DEVNET_SCOPE } : null;

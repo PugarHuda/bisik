@@ -45,6 +45,11 @@ data HoldingView = HoldingView with
 interface Holding where
   viewtype HoldingView
 
+-- Parties that must consent to release a lock (empty when unlocked).
+lockHolders : Optional Lock -> [Party]
+lockHolders (Some l) = l.holders
+lockHolders None = []
+
 -- A fungible token position. Used for any instrument (cash or asset legs alike).
 template Token
   with
@@ -55,7 +60,8 @@ template Token
     lock : Optional Lock
   where
     signatory issuer
-    observer owner
+    -- Lock holders observe the holding too, so they can act on the lock they hold.
+    observer owner :: lockHolders lock
     ensure amount > 0.0
 
     interface instance Holding for Token where
@@ -64,6 +70,23 @@ template Token
         instrument = InstrumentId with admin = issuer; id = instrument
         amount
         lock
+
+    -- Reserve this holding under a lock held by `holders` (e.g. a settlement
+    -- coordinator or a custodian). While locked it can't be split, merged,
+    -- transferred or allocated — every choice below asserts `lock == None`.
+    choice LockToken : ContractId Token
+      with newLock : Lock
+      controller owner
+      do assertMsg "already locked" (lock == None)
+         assertMsg "a lock needs at least one holder" (not (null newLock.holders))
+         create this with lock = Some newLock
+
+    -- Release the lock. Requires the owner AND every lock holder, so neither side
+    -- can unilaterally free a reserved holding.
+    choice UnlockToken : ContractId Token
+      controller owner :: lockHolders lock
+      do assertMsg "not locked" (lock /= None)
+         create this with lock = None
 
     -- Split off `amt`, keeping the remainder with the owner. Unlocked only.
     choice TokenSplit : (ContractId Token, ContractId Token)
@@ -172,9 +195,12 @@ template Allocation
     observer receiver
     ensure amount > 0.0
 
-    -- Deliver the reserved amount to the receiver (called during settlement).
+    -- Deliver the reserved amount to the receiver. Requires BOTH parties, so it
+    -- can only fire inside a settlement they jointly signed (e.g. DvpSettlement) —
+    -- the receiver can never unilaterally pull the sender's reserved funds. This is
+    -- what makes the DvP atomic rather than a one-sided claim.
     choice ExecuteAllocation : ContractId Token
-      controller receiver
+      controller sender, receiver
       do create Token with issuer, owner = receiver, instrument, amount, lock = None
 
     -- Return the reservation to the sender (settlement cancelled).
@@ -196,6 +222,16 @@ template DvpSettlement
 
     choice SettleDvp : (ContractId Token, ContractId Token)
       controller partyA
-      do toB <- exercise legAtoB ExecuteAllocation   -- B receives A's leg
+      do a <- fetch legAtoB
+         b <- fetch legBtoA
+         -- Bind the legs to THIS settlement and these parties, so a settlement can
+         -- never be pointed at somebody else's allocations.
+         assertMsg "leg A→B is not from partyA to partyB"
+           (a.sender == partyA && a.receiver == partyB)
+         assertMsg "leg B→A is not from partyB to partyA"
+           (b.sender == partyB && b.receiver == partyA)
+         assertMsg "a leg belongs to a different settlement"
+           (a.settlementId == settlementId && b.settlementId == settlementId)
+         toB <- exercise legAtoB ExecuteAllocation   -- B receives A's leg
          toA <- exercise legBtoA ExecuteAllocation   -- A receives B's leg
          pure (toB, toA)

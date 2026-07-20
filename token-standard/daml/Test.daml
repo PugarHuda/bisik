@@ -86,6 +86,75 @@ testAllocationDvp = script do
   aliceCash === 0.0
   bobBond === 0.0
 
+-- The receiver CANNOT unilaterally pull a sender's allocation — it needs both
+-- parties (i.e. a jointly-signed settlement). Guards DvP atomicity.
+testAllocationNotUnilateral : Script ()
+testAllocationNotUnilateral = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cash <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "USDC"; amount = 600.0; lock = None
+  alloc <- submit alice do
+    exerciseCmd cash AllocateForSettlement with receiver = bob; settlementId = "S1"; allocAmount = 600.0; meta = noMeta
+  -- Bob alone must not be able to execute and take the funds.
+  submitMustFail bob do exerciseCmd alloc ExecuteAllocation
+  -- Alice (the allocator) can still reclaim before settlement.
+  _ <- submit alice do exerciseCmd alloc CancelAllocation
+  aliceHas <- ownedAmount alice "USDC"
+  aliceHas === 600.0
+
+-- A locked holding is frozen: it cannot be transferred, split or allocated, and
+-- releasing it needs the owner AND the lock holder together.
+testLockFreezesHolding : Script ()
+testLockFreezesHolding = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  custodian <- allocateParty "Custodian"
+  let far = time (date 2030 Jan 1) 0 0 0
+  tok <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "USDC"; amount = 1000.0; lock = None
+  locked <- submit alice do
+    exerciseCmd tok LockToken with newLock = Lock with holders = [custodian]; context = "settlement-hold"
+  -- Frozen while locked: no transfer, no split, no allocation.
+  submitMustFail alice do
+    exerciseCmd locked TokenTransfer with receiver = bob; transferAmount = 100.0; deadline = far; meta = noMeta
+  submitMustFail alice do exerciseCmd locked TokenSplit with amt = 100.0
+  submitMustFail alice do
+    exerciseCmd locked AllocateForSettlement with receiver = bob; settlementId = "S1"; allocAmount = 100.0; meta = noMeta
+  -- The owner alone cannot release it; owner + custodian can.
+  submitMustFail alice do exerciseCmd locked UnlockToken
+  unlocked <- submitMulti [alice, custodian] [] do exerciseCmd locked UnlockToken
+  -- Once released it is spendable again.
+  _ <- submit alice do exerciseCmd unlocked TokenSplit with amt = 100.0
+  total <- ownedAmount alice "USDC"
+  total === 1000.0
+
+-- A settlement cannot be pointed at legs from a different settlement id.
+testDvpRejectsForeignLeg : Script ()
+testDvpRejectsForeignLeg = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cash <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "USDC"; amount = 600.0; lock = None
+  bond <- submit issuer do
+    createCmd Token with issuer; owner = bob; instrument = "TBOND30"; amount = 10.0; lock = None
+  legAtoB <- submit alice do
+    exerciseCmd cash AllocateForSettlement with receiver = bob; settlementId = "S1"; allocAmount = 600.0; meta = noMeta
+  -- Bob's leg belongs to a DIFFERENT settlement.
+  legBtoA <- submit bob do
+    exerciseCmd bond AllocateForSettlement with receiver = alice; settlementId = "S-OTHER"; allocAmount = 10.0; meta = noMeta
+  dvp <- submitMulti [alice, bob] [] do
+    createCmd DvpSettlement with partyA = alice; partyB = bob; settlementId = "S1"; legAtoB; legBtoA
+  submitMustFail alice do exerciseCmd dvp SettleDvp
+  -- Nothing moved: both allocations are still reserved.
+  aliceBond <- ownedAmount alice "TBOND30"
+  bobCash <- ownedAmount bob "USDC"
+  aliceBond === 0.0
+  bobCash === 0.0
+
 -- Split then merge round-trips the amount.
 testSplitMerge : Script ()
 testSplitMerge = script do

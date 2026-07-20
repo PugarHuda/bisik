@@ -182,7 +182,7 @@ UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
 
 - **External-wallet registry interop** for the token standard (the Splice
   `TransferFactory`/`AllocationFactory` discovery DARs). The CIP-0056-*shape* now
-  ships and is live on Devnet — a separate `token-standard/` package (`d3b7c07e…`)
+  ships and is live on Devnet — a separate `token-standard/` package (`05e4ebb9…`)
   with a `Holding` interface, a two-step `TransferInstruction`, an atomic-DvP
   `Allocation`, and a `Metadata` map; verified by four `daml test` scripts and live
   on-ledger (`npm run token:demo`). Adopting the external standard DARs for
@@ -241,3 +241,70 @@ self-check run on every push; the Playwright suites need a live sandbox + browse
 they're run locally (not in CI). The rich deployment (settled trades across
 Treasuries/Gilts/Bunds/JGB/OAT/corporates/EM + baskets, all read views) stays live.
 - Live dashboard KPI tiles; functional in-app sidebar nav; Playwright video recorder.
+
+## Pass 3 — QA of the new surfaces (token standard, agent, MCP write)
+
+A dedicated adversarial pass over everything added after v0.6.0, plus a full
+regression run. Three real defects were found and fixed; all are covered by tests.
+
+### Defects found & fixed — `token-standard/`
+
+- ✅ **HIGH — DvP was not actually atomic: a receiver could take a leg unilaterally.**
+  `Allocation.ExecuteAllocation` was `controller receiver`, so the party expecting
+  delivery could exercise it directly on the counterparty's allocation and walk away
+  with the reserved funds **without delivering their own leg** — exactly the failure
+  DvP exists to prevent. Now `controller sender, receiver`, so it can only fire inside
+  a settlement both parties signed (`DvpSettlement`, whose signatories supply both
+  authorities). Test: `testAllocationNotUnilateral` (receiver alone must fail; the
+  allocator can still `CancelAllocation` to reclaim before settlement).
+- ✅ **MED — the `lock` field was dead weight, and four guards were dead code.**
+  `Token.lock` was never set to anything but `None`, so the `assertMsg "holding is
+  locked" (lock == None)` guards in split / merge / transfer / allocate could never
+  fire, and the standard's Holding view always reported "unlocked". Implemented the
+  lock for real: `LockToken` (owner reserves under named holders + context) and
+  `UnlockToken` (`controller owner :: lockHolders lock` — the owner **and** every lock
+  holder, so neither side can unilaterally free a reserved holding); lock holders are
+  now observers so they can act on the lock they hold. Test: `testLockFreezesHolding`
+  proves a locked holding cannot be transferred, split or allocated, that the owner
+  alone cannot release it, and that it is spendable again after a joint unlock.
+- ✅ **MED — `SettleDvp` did not bind its legs to itself.** It exercised whatever two
+  allocation ids it was handed. Authorization made this safe in practice (foreign legs
+  would need outside parties' authority), but the contract was not self-validating.
+  It now asserts both legs carry this settlement's `settlementId` and run between
+  exactly `partyA`/`partyB` in the right directions. Test: `testDvpRejectsForeignLeg`
+  (a leg from another settlement aborts the whole settlement; nothing moves).
+
+### Process / tooling findings
+
+- ✅ **CI did not gate the new package.** `token-standard` was missing from
+  `multi-package.yaml`, so `daml build --all` skipped it and its scripts never ran.
+  Added to the workspace plus a dedicated `daml test (token-standard)` CI step.
+- ⚠️ **The Playwright suites are stateful — run each against a fresh `npm run demo`.**
+  Running them back-to-back drains the seeded dealer inventory, and the next suite
+  fails as bare `waitForSelector` timeouts that *look* like product bugs. Observed
+  directly: `e2e:actions` scored 4/8 immediately after `e2e`, then **16/16** on a
+  fresh ledger — same code, same assertions. Not a product defect; a harness
+  constraint worth stating so a reviewer doesn't misread it.
+- ⚠️ **Canton SCU blocks iterating a deployed package.** Re-uploading a changed
+  package under the same name+version is rejected (`KNOWN_PACKAGE_VERSION`), and a
+  version bump whose choice signatures changed is rejected too
+  (`NOT_VALID_UPGRADE_PACKAGE`). Same wall the desk hit; same fix — a fresh package
+  **name** per breaking iteration (`bisik-token-standard` → `-v2` → `-v3`), which
+  starts a new upgrade lineage instead of an in-place upgrade.
+
+### Regression status (all green)
+
+| Surface | Result |
+|---|---|
+| Desk Daml behavioural scripts (frozen `b0058535…`) | **27/27** |
+| Token-standard Daml scripts | **7/7** |
+| Playwright `e2e` (fresh ledger) | **22/22** |
+| Playwright `e2e:actions` (fresh ledger) | **16/16** |
+| Playwright `e2e:bestexec` (fresh ledger) | **8/8** |
+| Devnet — desk audit book | 41 trades + 5 baskets + 32 disclosures, privacy verified |
+| Devnet — token standard live (`05e4ebb9…`) | transfer instruction + atomic DvP, on-ledger |
+| Hosted `bisik-eight.vercel.app` | pages 200, audit book intact, **writes still 403** |
+
+The public proxy stays read-only even though the MCP server gained a write tool:
+`post_rfq` submits directly to the ledger with the operator's local credentials, never
+through the hosted proxy — re-verified above (`403` on a public submit attempt).
