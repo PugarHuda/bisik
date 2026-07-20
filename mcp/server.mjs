@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-// Bisik MCP server — exposes the confidential RFQ desk to AI agents as read-only
-// tools over the Canton JSON Ledger API. This is the "agentic commerce" angle:
-// an agent can audit the post-trade record AND verify Canton's privacy model for
-// itself (query as any party and see it only ever receives its own data).
+// Bisik MCP server — exposes the confidential RFQ desk to AI agents over the
+// Canton JSON Ledger API. This is the "agentic commerce" angle: an agent can
+// audit the post-trade record, verify Canton's privacy model for itself (query
+// as any party and see it only ever receives its own data), AND initiate a real
+// commercial action — post an RFQ on-ledger (post_rfq).
 //
-// Read-only by construction — no command submission, no signing. Reads the same
-// gitignored scripts/.env.devnet and scripts/devnet.parties.json the deployer uses.
+// Reads are open; the one write tool (post_rfq) submits with the OPERATOR'S OWN
+// local credentials (the same gitignored scripts/.env.devnet + devnet.parties.json
+// the deployer uses). The public hosted proxy stays read-only — writing is a
+// deliberate, locally-run capability, not something exposed to the internet.
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -66,6 +69,20 @@ async function api(path, opts = {}) {
   throw new Error('ledger unreachable after retries');
 }
 
+// Write path (post_rfq only): submit a command with the operator's local token.
+const USER = ENV.LEDGER_USER_ID ?? (ENV.DEVNET_TOKEN_URL ? '6' : 'participant_admin');
+const PKG = ENV.BISIK_PKG ?? 'b0058535e188b74314740b6d3b1da1d59df999cdd41dac37ef61da23bcd15a30';
+let CID = 0;
+async function submit(actAs, command) {
+  const commandId = `bisik-mcp-${Date.now()}-${CID++}`; // stable across retries → ledger dedup
+  const r = await api('/v2/commands/submit-and-wait-for-transaction', { method: 'POST',
+    body: JSON.stringify({ commands: { userId: USER, commandId, actAs: [actAs], commands: [command] } }) });
+  if (!r.ok) throw new Error(`submit ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+  return r.data;
+}
+const createdCid = (tx, tplSuffix) => tx.transaction?.events?.map((e) => e.CreatedEvent)
+  .find((e) => e && typeof e.templateId === 'string' && e.templateId.endsWith(tplSuffix))?.contractId;
+
 async function acsAs(party) {
   const end = await api('/v2/state/ledger-end');
   const off = end.data?.offset;
@@ -111,6 +128,18 @@ const TOOLS = [
     name: 'best_execution',
     description: "Provable best execution WITHOUT a public order book. For each settled trade the regulator can see, compare the executed clearing price against the sealed competing asks that were selectively disclosed to the regulator, and report whether the buyer's price beat every disclosed rival. This is the institutional payoff of Canton: confidential pre-trade, provable post-trade.",
     inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'post_rfq',
+    description: "Initiate a real commercial action: post a confidential RFQ on-ledger as the buyer, inviting the dealer panel (dealerA + dealerB). This is a WRITE — it submits to Canton Devnet using the operator's local credentials (the public hosted proxy stays read-only). The RFQ appears live on the desk within seconds; each invited dealer's node receives only its own invitation (Canton privacy), never the fact that a rival was also invited on the same terms.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        instrument: { type: 'string', description: 'Bond ticker, e.g. TBOND30 (default), GILT10, BUND10.' },
+        quantity: { type: 'number', description: 'Face quantity (default 1000).' },
+        payInstrument: { type: 'string', description: 'Cash leg (default USDC).' },
+      },
+    },
   },
 ];
 
@@ -200,10 +229,34 @@ async function handle(name, args) {
     return text('Provable best execution (regulator view — no public order book):\n' + lines.join('\n') +
       '\n\nEach line compares the executed price to the sealed asks the counterparties selectively disclosed to the regulator. Confidential pre-trade, provable post-trade — Canton selective disclosure.');
   }
+  if (name === 'post_rfq') {
+    const buyer = resolveParty('buyer'), dealerA = resolveParty('dealerA'), dealerB = resolveParty('dealerB'),
+      regulator = resolveParty('regulator'), cashIssuer = resolveParty('cashIssuer'), bondIssuer = resolveParty('bondIssuer');
+    if (!buyer || !dealerA || !dealerB || !regulator || !cashIssuer || !bondIssuer)
+      return text("Cannot post an RFQ: parties not configured (scripts/devnet.parties.json). This write tool needs the operator's local credentials.");
+    const instrument = String(args?.instrument ?? 'TBOND30').trim() || 'TBOND30';
+    const quantity = Number(args?.quantity ?? 1000).toFixed(1); // Decimal — "1000.0"
+    const payInstrument = String(args?.payInstrument ?? 'USDC').trim() || 'USDC';
+    if (!(Number(quantity) > 0)) return text('quantity must be a positive number.');
+    const tx = await submit(buyer, { CreateCommand: { templateId: `${PKG}:Bisik:RFQ`, createArguments: {
+      buyer, regulator, invitedDealers: [dealerA, dealerB], instrument, quantity, payInstrument,
+      assetIssuer: bondIssuer, payIssuer: cashIssuer, deadline: '2030-01-01T00:00:00Z' } } });
+    const cid = createdCid(tx, ':Bisik:RFQ');
+    if (!cid) return text('RFQ submitted but no contract id came back — check the ledger.');
+    return text([
+      `✓ Posted a confidential RFQ on Canton Devnet: ${instrument} × ${quantity}, pay ${payInstrument}.`,
+      `  invited: dealerA + dealerB · regulator: on the post-trade record only`,
+      `  contract: ${cid}`,
+      '',
+      'An agent just initiated a real commercial action. It is live on the desk now; each dealer',
+      "sees only its own invitation. Use party_view('dealerA') / party_view('dealerB') to confirm",
+      'neither can see the other was invited — the privacy holds on-ledger, not in the UI.',
+    ].join('\n'));
+  }
   throw new Error('unknown tool: ' + name);
 }
 
-const server = new Server({ name: 'bisik', version: '0.6.0' }, { capabilities: { tools: {} } });
+const server = new Server({ name: 'bisik', version: '0.7.0' }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   try { return await handle(req.params.name, req.params.arguments); }

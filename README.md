@@ -148,18 +148,22 @@ regulator  {"TradeReport":11,"BasketTradeReport":3}   (settled trades only — z
 
 ## Agentic access (MCP) — Private DeFi × agentic commerce
 
-Bisik ships a read-only [MCP](https://modelcontextprotocol.io) server (`mcp/`) that
-exposes the live desk to AI agents. The compelling part: an agent can **verify
-Canton's privacy model for itself**, not take it on faith.
+Bisik ships an [MCP](https://modelcontextprotocol.io) server (`mcp/`) that exposes
+the live desk to AI agents. The compelling part: an agent can **verify Canton's
+privacy model for itself** — and **act on the desk**, not just read it.
 
 ```
 agent → party_view("dealerA")  → {"RFQ":1,"EscrowedHolding":1,"Quote":1}  (only its own quote)
 agent → party_view("regulator") → {}  (nothing pre-trade)
 agent → list_settlements        → the post-trade audit trail
+agent → best_execution          → executed price vs the disclosed asks — attested
+agent → post_rfq(TBOND30 ×1000) → posts a real RFQ on-ledger; live on the desk in seconds
 ```
 
-Tools: `explain_desk`, `party_view`, `list_settlements`, `market_snapshot` — all
-read-only, no signing. Drop `.mcp.json` into Claude Desktop / Cursor, or
+Tools: `explain_desk`, `party_view`, `list_settlements`, `market_snapshot`,
+`best_execution` (read), and `post_rfq` (**write** — an agent initiates a real
+commercial action, using the operator's local credentials; the public hosted proxy
+stays read-only). Drop `.mcp.json` into Claude Desktop / Cursor, or
 `cd mcp && npm install && npm start`. See `mcp/README.md`.
 
 And the *acting* side — **autonomous market-maker agents** (`scripts/agent.mjs`):

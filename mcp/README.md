@@ -1,13 +1,16 @@
 # Bisik MCP server — the desk as AI-native tools
 
-A read-only [Model Context Protocol](https://modelcontextprotocol.io) server that
-exposes the live Bisik desk to AI agents. This is the **agentic-commerce** angle:
-an agent can read the post-trade audit trail *and* verify Canton's privacy model
-for itself — query as any party and watch it receive only its own data.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the
+live Bisik desk to AI agents. This is the **agentic-commerce** angle: an agent can
+read the post-trade audit trail, verify Canton's privacy model for itself (query as
+any party and watch it receive only its own data), *and* **initiate a real commercial
+action** — post an RFQ on-ledger.
 
-Read-only by construction: no command submission, no signing. It reuses the same
-gitignored `scripts/.env.devnet` (token) and `scripts/devnet.parties.json` (party
-ids) the deployer uses, so it points at whatever the desk is deployed to.
+Reads are open. The one write tool (`post_rfq`) submits with the **operator's own
+local credentials** — it reuses the same gitignored `scripts/.env.devnet` (token) and
+`scripts/devnet.parties.json` (party ids) the deployer uses. The public hosted proxy
+stays read-only; writing is a deliberate, locally-run capability, never exposed to the
+internet.
 
 ## Tools
 
@@ -17,6 +20,8 @@ ids) the deployer uses, so it points at whatever the desk is deployed to.
 | `party_view` | The on-ledger contract counts a given party actually receives — proves sub-transaction privacy live (a dealer sees only its own quote; the regulator sees no pre-trade flow). |
 | `list_settlements` | The regulator's post-trade audit trail: settled trades and their Vickrey clearing price. |
 | `market_snapshot` | Open RFQs, sealed quotes in flight, settled trades. |
+| `best_execution` | For each settled trade, compares the executed price against the sealed asks disclosed to the regulator — provable best execution, no public order book. |
+| `post_rfq` *(write)* | Posts a confidential RFQ on-ledger as the buyer, inviting the dealer panel. A real commercial action; appears live on the desk within seconds. Uses the operator's local credentials. |
 
 ## Run
 
@@ -37,7 +42,8 @@ Drop `.mcp.json` (repo root) into your client config, or add:
 ```
 
 Then ask the agent: *"explain the Bisik desk"*, *"what does dealerA see on-ledger?"*,
-*"list the settled trades"*.
+*"list the settled trades"*, *"attest best execution"*, or — to act — *"post an RFQ for
+TBOND30 ×1000"* and watch it land on the desk, sealed to each dealer.
 
 ## Why this is interesting
 

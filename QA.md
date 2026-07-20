@@ -180,13 +180,26 @@ UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
 
 ## Opportunities (not done — future work)
 
-- CIP-0056 token standard for the cash/asset legs (wallet interop, real DvP).
-- Multi-instrument / multi-round RFQ; partial fills.
-- WebSocket update stream instead of polling.
-- MPC / trusted auctioneer so even the buyer can't see losing bids and the true
-  second price is forced (MPC would re-add the cryptography Canton lets us skip).
+- **Full CIP-0056 token standard** for the cash/asset legs (external-wallet interop).
+  A CIP-0056-aligned in-package `Token` interface already ships; adopting the full
+  standard DARs is a package change, so it's deferred to keep the live Devnet package
+  id (`b0058535…`) frozen for this submission.
+- **MPC / trusted auctioneer** so even the buyer can't see losing bids and the *true*
+  second price is forced against a self-interested buyer. Deliberately declined: MPC
+  re-adds exactly the cryptography Canton lets us skip; a trusted auctioneer moves the
+  trust off-ledger. The on-ledger guarantee stands at "at or above the winner's ask."
+
+*Previously listed here and now shipped:* multi-instrument / multi-round RFQ and
+partial fills (baskets + `AcceptPartial`/`AwardPartial` + withdraw/re-quote); and the
+"WebSocket update stream" — the desk now gets **SSE push** the moment the ledger offset
+moves (`/api/stream` in `web/server.mjs`), not blind timer polling.
 
 **Delivered since this review:**
+- **Agentic write path** — the MCP server gained `post_rfq`: an AI agent initiates a
+  real commercial action (posts a confidential RFQ on-ledger, sealed per dealer) using
+  the operator's local credentials, verified live on Devnet. And `scripts/agent.mjs`
+  runs a **full two-agent round-trip** — two dealer-agents quote blind, a buyer-agent
+  awards, and a real Vickrey-cleared `TradeReport` settles on Devnet.
 - Direct bilateral OTC as a second settlement mode alongside Vickrey — the buyer's
   "settle one quote at its ask" is now a deliberate feature, not just tolerated scope.
 - Per-dealer one-quote enforcement — `Award` rejects a quote set that repeats a
