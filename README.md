@@ -88,6 +88,12 @@ npm run record        # drive the money shot with Playwright → media/ screensh
 npm run record:demo   # record the full 4:35 live demo (landing → desk → deck)
 ```
 
+**Submission cut:** `media/bisik-demo-3min-subtitled.mp4` — 3:04, with a title card,
+the full walkthrough, and a closing card. Subtitles are burned in **karaoke-style**
+(spoken words lit, upcoming words dim) so a narrator can lock pace to the picture.
+Rebuild it with `CUT=short node scripts/record-demo.mjs`, then
+`node scripts/subs-karaoke.mjs media/bisik-demo-3min.srt media/bisik-demo-3min.ass`.
+
 `record:demo` drives the real product with a **visible cursor and smooth motion**,
 covering the landing page, every desk feature (RFQ → sealed quotes → the money shot →
 selective disclosure → Vickrey award), all four read views, and the pitch deck. It
