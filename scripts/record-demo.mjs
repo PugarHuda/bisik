@@ -28,6 +28,44 @@ const SPEED = Number(process.env.SPEED ?? 1);
 const WPM = Number(process.env.WPM ?? 150);
 const W = 1600, H = 900;
 
+// CUT=short → the ~3:00 submission cut. Drops the secondary chapters and tightens
+// the narration on the ones that stay; the money shot and best execution keep their
+// full weight. Selective disclosure is NEVER dropped — best execution depends on it.
+const SHORT = process.env.CUT === 'short';
+const OUT = SHORT ? 'bisik-demo-3min' : 'bisik-live-demo';
+const SHORT_SKIP = new Set([
+  'Landing · how it works',
+  'Landing · the model',
+  'Verify privacy · the contrast',
+  'Audit trail',
+  'Portfolio',
+  'Deck · why Canton',
+  'Deck · the lineage table',
+]);
+const SHORT_LINES = new Map([
+  ['Landing · the hook', [
+    'When an institution moves a large block of bonds, it cannot simply post it — the moment the order and the competing bids are visible, the market front-runs it.',
+  ]],
+  ['Desk · three views of one ledger', [
+    'These three columns are one ledger seen by three parties: a buyer and two competing dealers.',
+    'Each column shows only what that party’s own node actually received.',
+  ]],
+  ['Desk · selective disclosure', [
+    'Either side can reveal one sealed quote to a regulator on demand — never to a rival, never in public.',
+  ]],
+  ['Verify privacy', [
+    'You don’t have to trust the privacy. This view queries what each node actually holds:',
+    'each dealer sees only its own quote, and the regulator sees nothing before settlement.',
+  ]],
+  ['Best execution', [
+    'This is what institutions actually need. A public exchange proves best execution against a visible order book.',
+    'Bisik has no order book — and still proves it, from the sealed asks disclosed to the regulator.',
+  ]],
+  ['Close', [
+    'Bisik — the confidential OTC desk that finally didn’t need a cryptography stack, because Canton already is one.',
+  ]],
+]);
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
 const hold = (ms) => sleep(ms * SPEED);
 
@@ -106,6 +144,8 @@ const words = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 const readMs = (lines) => (lines.reduce((n, l) => n + words(l), 0) / WPM) * 60000;
 
 async function segment(chapter, lines, fn) {
+  if (SHORT && SHORT_SKIP.has(chapter)) return;
+  if (SHORT && SHORT_LINES.has(chapter)) lines = SHORT_LINES.get(chapter);
   const start = now();
   const need = readMs(lines) * SPEED + 400; // give the narrator breathing room
   await fn();
@@ -418,11 +458,11 @@ const srtTime = (ms) => {
   await ctx.close();
   await browser.close();
 
-  const out = join(MEDIA, 'bisik-live-demo.webm');
+  const out = join(MEDIA, `${OUT}.webm`);
   await unlink(out).catch(() => {});
   await rename(videoPath, out).catch(async () => {
     const files = await readdir(MEDIA);
-    const w = files.filter((f) => f.endsWith('.webm') && f !== 'bisik-live-demo.webm');
+    const w = files.filter((f) => f.endsWith('.webm') && !f.startsWith('bisik-'));
     if (w[0]) await rename(join(MEDIA, w[0]), out);
   });
 
@@ -440,15 +480,15 @@ const srtTime = (ms) => {
   }
   const srt = cues.map((c, i) =>
     `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${c.text}\n`).join('\n');
-  await writeFile(join(MEDIA, 'bisik-live-demo.srt'), srt, 'utf8');
-  await writeFile(join(MEDIA, 'bisik-live-demo.vtt'),
+  await writeFile(join(MEDIA, `${OUT}.srt`), srt, 'utf8');
+  await writeFile(join(MEDIA, `${OUT}.vtt`),
     'WEBVTT\n\n' + srt.replace(/,(\d{3})/g, '.$1').replace(/^\d+\n/gm, ''), 'utf8');
 
   const dur = timeline.length ? timeline[timeline.length - 1].end : 0;
   const md = [
     '# Bisik — live demo narration (read this in your own voice)',
     '',
-    `Recorded video: \`media/bisik-live-demo.webm\` · subtitles: \`media/bisik-live-demo.srt\``,
+    `Recorded video: \`media/${OUT}.webm\` · subtitles: \`media/${OUT}.srt\``,
     `Total runtime: **${fmt(dur + LEAD)}**. Pace assumed: ${WPM} words/min.`,`Timecodes below are video-relative (they already include the ${LEAD}ms lead-in).`,
     '',
     'Encode requires a **real human voice** — record yourself reading the lines below,',
@@ -464,9 +504,9 @@ const srtTime = (ms) => {
       '',
     ]),
   ].join('\n');
-  await writeFile(join(ROOT, 'DEMO-LIVE-SCRIPT.md'), md, 'utf8');
+  await writeFile(join(ROOT, SHORT ? 'DEMO-3MIN-SCRIPT.md' : 'DEMO-LIVE-SCRIPT.md'), md, 'utf8');
 
   console.log(`\n✓ video      media/bisik-live-demo.webm   (${fmt(dur)})`);
-  console.log('✓ subtitles  media/bisik-live-demo.srt / .vtt');
-  console.log('✓ narration  DEMO-LIVE-SCRIPT.md (timecoded)');
+  console.log(`✓ subtitles  media/${OUT}.srt / .vtt`);
+  console.log(`✓ narration  ${SHORT ? 'DEMO-3MIN-SCRIPT.md' : 'DEMO-LIVE-SCRIPT.md'} (timecoded)`);
 })().catch((e) => { console.error('record-demo failed:', e.message); process.exit(1); });
