@@ -853,13 +853,16 @@ document.getElementById('howto-x')?.addEventListener('click', () => document.get
     if (!(await loadParties(cfg.parties))) { setLedger('err', 'demo parties not found — run seed'); return; }
     await refresh();
     setInterval(refresh, 1800);
-    // Near-instant updates when the local server offers an SSE push stream; a
-    // harmless no-op on hosts that don't (the timed poll above still runs).
-    try {
-      const es = new EventSource('/api/stream');
-      es.onmessage = () => refresh();
-      es.onerror = () => es.close();
-    } catch { /* no EventSource / no stream — polling covers it */ }
+    // Near-instant updates when the local server offers an SSE push stream. Skip it
+    // on the read-only hosted proxy — /api/stream isn't allow-listed there, so opening
+    // it only logs a 403 in the console; the 1.8s poll above already covers updates.
+    if (!READONLY) {
+      try {
+        const es = new EventSource('/api/stream');
+        es.onmessage = () => refresh();
+        es.onerror = () => es.close();
+      } catch { /* no EventSource / no stream — polling covers it */ }
+    }
   } catch (e) {
     setLedger('err', 'startup failed: ' + (e?.message ?? e));
   }
