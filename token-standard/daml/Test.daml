@@ -1,0 +1,102 @@
+-- Behavioural checks for the CIP-0056-shaped token standard: the two-step transfer
+-- and the atomic DvP allocation swap. `daml test` runs these.
+module Test where
+
+import TokenStandard
+import Daml.Script
+import DA.Assert ((===))
+import DA.Time (time)
+import DA.Date (date, Month(Jan))
+import DA.List (sortOn)
+
+noMeta : Metadata
+noMeta = Metadata []
+
+-- Sum the amounts of one party's holdings of one instrument (its own view).
+ownedAmount : Party -> Text -> Script Decimal
+ownedAmount p inst = do
+  ts <- query @Token p
+  pure $ sum [t.amount | (_, t) <- ts, t.owner == p, t.instrument == inst]
+
+-- Two-step transfer: sender proposes, receiver accepts; a partial transfer leaves
+-- the remainder with the sender.
+testTransferInstruction : Script ()
+testTransferInstruction = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  let far = time (date 2030 Jan 1) 0 0 0
+
+  cash <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "USDC"; amount = 1000.0; lock = None
+  ti <- submit alice do
+    exerciseCmd cash TokenTransfer with receiver = bob; transferAmount = 400.0; deadline = far; meta = noMeta
+  _ <- submit bob do exerciseCmd ti AcceptTransfer
+
+  aliceHas <- ownedAmount alice "USDC"
+  bobHas <- ownedAmount bob "USDC"
+  aliceHas === 600.0   -- remainder stayed with the sender
+  bobHas === 400.0     -- receiver got exactly the transferred amount
+
+-- A rejected transfer returns the full amount to the sender.
+testTransferReject : Script ()
+testTransferReject = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  let far = time (date 2030 Jan 1) 0 0 0
+  cash <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "USDC"; amount = 500.0; lock = None
+  ti <- submit alice do
+    exerciseCmd cash TokenTransfer with receiver = bob; transferAmount = 500.0; deadline = far; meta = noMeta
+  _ <- submit bob do exerciseCmd ti RejectTransfer
+  aliceHas <- ownedAmount alice "USDC"
+  bobHas <- ownedAmount bob "USDC"
+  aliceHas === 500.0
+  bobHas === 0.0
+
+-- Atomic DvP: Alice pays cash, Bob delivers a bond, both legs in one transaction.
+testAllocationDvp : Script ()
+testAllocationDvp = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  cash <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "USDC"; amount = 600.0; lock = None
+  bond <- submit issuer do
+    createCmd Token with issuer; owner = bob; instrument = "TBOND30"; amount = 10.0; lock = None
+
+  legAtoB <- submit alice do
+    exerciseCmd cash AllocateForSettlement with receiver = bob; settlementId = "S1"; allocAmount = 600.0; meta = noMeta
+  legBtoA <- submit bob do
+    exerciseCmd bond AllocateForSettlement with receiver = alice; settlementId = "S1"; allocAmount = 10.0; meta = noMeta
+
+  dvp <- submitMulti [alice, bob] [] do
+    createCmd DvpSettlement with partyA = alice; partyB = bob; settlementId = "S1"; legAtoB; legBtoA
+  _ <- submit alice do exerciseCmd dvp SettleDvp
+
+  -- After the swap: Alice holds the bond, Bob holds the cash.
+  aliceBond <- ownedAmount alice "TBOND30"
+  bobCash <- ownedAmount bob "USDC"
+  aliceCash <- ownedAmount alice "USDC"
+  bobBond <- ownedAmount bob "TBOND30"
+  aliceBond === 10.0
+  bobCash === 600.0
+  aliceCash === 0.0
+  bobBond === 0.0
+
+-- Split then merge round-trips the amount.
+testSplitMerge : Script ()
+testSplitMerge = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  tok <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "USDC"; amount = 1000.0; lock = None
+  (a, b) <- submit alice do exerciseCmd tok TokenSplit with amt = 300.0
+  _ <- submit alice do exerciseCmd a TokenMerge with otherCid = b
+  total <- ownedAmount alice "USDC"
+  total === 1000.0
+  -- and it is a single consolidated holding
+  ts <- query @Token alice
+  length (sortOn (\(_, t) -> t.amount) ts) === 1

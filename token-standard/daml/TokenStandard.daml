@@ -1,0 +1,201 @@
+-- Bisik CIP-0056-shaped token standard (native).
+--
+-- A faithful native model of the Canton Network Token Standard's core shape:
+--   • Holding      — a standard, viewable position in one instrument (with an
+--                    optional lock, so tooling can see reserved state).
+--   • TransferInstruction — a TWO-STEP transfer: the sender proposes, the receiver
+--                    accepts (or rejects / the sender withdraws / it expires).
+--   • Allocation   — reserve part of a holding for a named settlement leg, so
+--                    multiple legs can execute atomically (delivery-versus-payment).
+--   • Metadata     — the string→string map the standard threads through operations.
+--
+-- Implemented directly on Daml (no external Splice DARs), so a settlement engine or
+-- wallet can drive a position through these standard interfaces. Full cross-package
+-- registry interop (TransferFactory / AllocationFactory discovery) is the further
+-- step; this is the standard's on-ledger SHAPE, native and self-contained.
+module TokenStandard where
+
+-- The standard threads a string→string metadata map through operations.
+data Metadata = Metadata with
+    values : [(Text, Text)]
+  deriving (Eq, Show)
+
+-- An instrument is identified by its administrator (issuer) plus a symbol.
+data InstrumentId = InstrumentId with
+    admin : Party
+    id : Text
+  deriving (Eq, Show)
+
+-- A lock reserves a holding (e.g. while an allocation is pending) so tooling can
+-- see it is not freely spendable.
+data Lock = Lock with
+    holders : [Party]
+    context : Text
+  deriving (Eq, Show)
+
+data HoldingView = HoldingView with
+    owner : Party
+    instrument : InstrumentId
+    amount : Decimal
+    lock : Optional Lock
+  deriving (Eq, Show)
+
+-- The standard Holding interface: generic tooling reads any position through this
+-- view without knowing the concrete template.
+interface Holding where
+  viewtype HoldingView
+
+-- A fungible token position. Used for any instrument (cash or asset legs alike).
+template Token
+  with
+    issuer : Party
+    owner : Party
+    instrument : Text
+    amount : Decimal
+    lock : Optional Lock
+  where
+    signatory issuer
+    observer owner
+    ensure amount > 0.0
+
+    interface instance Holding for Token where
+      view = HoldingView with
+        owner
+        instrument = InstrumentId with admin = issuer; id = instrument
+        amount
+        lock
+
+    -- Split off `amt`, keeping the remainder with the owner. Unlocked only.
+    choice TokenSplit : (ContractId Token, ContractId Token)
+      with amt : Decimal
+      controller owner
+      do assertMsg "holding is locked" (lock == None)
+         assertMsg "amount out of range" (amt > 0.0 && amt < amount)
+         a <- create this with amount = amt
+         b <- create this with amount = amount - amt
+         pure (a, b)
+
+    -- Merge a same-instrument, same-owner holding into this one.
+    choice TokenMerge : ContractId Token
+      with otherCid : ContractId Token
+      controller owner
+      do other <- fetch otherCid
+         assertMsg "not mergeable"
+           (other.issuer == issuer && other.owner == owner &&
+            other.instrument == instrument && lock == None && other.lock == None)
+         archive otherCid
+         create this with amount = amount + other.amount
+
+    -- Begin a two-step transfer: propose to `receiver`. The transferred amount
+    -- leaves the sender now (any remainder stays with the sender); the receiver
+    -- must accept before it becomes their holding.
+    choice TokenTransfer : ContractId TransferInstruction
+      with
+        receiver : Party
+        transferAmount : Decimal
+        deadline : Time
+        meta : Metadata
+      controller owner
+      do assertMsg "holding is locked" (lock == None)
+         assertMsg "amount out of range" (transferAmount > 0.0 && transferAmount <= amount)
+         if transferAmount < amount
+           then do _ <- create this with amount = amount - transferAmount
+                   pure ()
+           else pure ()
+         create TransferInstruction with
+           issuer; sender = owner; receiver; instrument
+           amount = transferAmount; deadline; meta
+
+    -- Reserve `allocAmount` for a named settlement leg (receiver takes delivery at
+    -- settlement). The remainder, if any, stays spendable with the owner.
+    choice AllocateForSettlement : ContractId Allocation
+      with
+        receiver : Party
+        settlementId : Text
+        allocAmount : Decimal
+        meta : Metadata
+      controller owner
+      do assertMsg "holding is locked" (lock == None)
+         assertMsg "amount out of range" (allocAmount > 0.0 && allocAmount <= amount)
+         if allocAmount < amount
+           then do _ <- create this with amount = amount - allocAmount
+                   pure ()
+           else pure ()
+         create Allocation with
+           issuer; sender = owner; receiver; settlementId; instrument
+           amount = allocAmount; meta
+
+-- A proposed transfer awaiting the receiver's decision.
+template TransferInstruction
+  with
+    issuer : Party
+    sender : Party
+    receiver : Party
+    instrument : Text
+    amount : Decimal
+    deadline : Time
+    meta : Metadata
+  where
+    signatory issuer, sender
+    observer receiver
+    ensure amount > 0.0
+
+    -- Receiver accepts (before the deadline) → the holding is minted to them.
+    choice AcceptTransfer : ContractId Token
+      controller receiver
+      do now <- getTime
+         assertMsg "transfer expired" (now <= deadline)
+         create Token with issuer, owner = receiver, instrument, amount, lock = None
+
+    -- Receiver rejects → the amount returns to the sender.
+    choice RejectTransfer : ContractId Token
+      controller receiver
+      do create Token with issuer, owner = sender, instrument, amount, lock = None
+
+    -- Sender withdraws the proposal → the amount returns to the sender.
+    choice WithdrawTransfer : ContractId Token
+      controller sender
+      do create Token with issuer, owner = sender, instrument, amount, lock = None
+
+-- Amount reserved for one leg of a settlement.
+template Allocation
+  with
+    issuer : Party
+    sender : Party
+    receiver : Party
+    settlementId : Text
+    instrument : Text
+    amount : Decimal
+    meta : Metadata
+  where
+    signatory issuer, sender
+    observer receiver
+    ensure amount > 0.0
+
+    -- Deliver the reserved amount to the receiver (called during settlement).
+    choice ExecuteAllocation : ContractId Token
+      controller receiver
+      do create Token with issuer, owner = receiver, instrument, amount, lock = None
+
+    -- Return the reservation to the sender (settlement cancelled).
+    choice CancelAllocation : ContractId Token
+      controller sender
+      do create Token with issuer, owner = sender, instrument, amount, lock = None
+
+-- Atomic delivery-versus-payment: two allocations settle in ONE transaction, or
+-- neither does. Both parties sign; either delivered leg fails ⇒ the whole tx aborts.
+template DvpSettlement
+  with
+    partyA : Party
+    partyB : Party
+    settlementId : Text
+    legAtoB : ContractId Allocation   -- A delivers this leg to B
+    legBtoA : ContractId Allocation   -- B delivers this leg to A
+  where
+    signatory partyA, partyB
+
+    choice SettleDvp : (ContractId Token, ContractId Token)
+      controller partyA
+      do toB <- exercise legAtoB ExecuteAllocation   -- B receives A's leg
+         toA <- exercise legBtoA ExecuteAllocation   -- A receives B's leg
+         pure (toB, toA)

@@ -81,11 +81,14 @@ by the protocol and a regulator-observable audit trail. Maps to the track's
 **10 · Honest scope / roadmap**
 Shipped: three settlement rails (competitive Vickrey + direct bilateral OTC + partial
 fills on both); one-quote-per-dealer enforced on-ledger; multi-instrument baskets;
-symmetric selective disclosure; and provable best execution across all three rails.
-Ahead: a CIP-0056 token standard for the legs (wallet interop, real DvP); and — to
-force the true second price even against a self-interested buyer — a trusted
-auctioneer or MPC (the latter would re-introduce exactly the cryptography Canton
-lets us skip).
+symmetric selective disclosure; provable best execution across all three rails; two
+autonomous market-maker agents settling a real trade; an MCP write tool an AI drives
+to post an RFQ; and a **CIP-0056-shaped token standard live on Devnet** (Holding +
+two-step TransferInstruction + atomic-DvP Allocation + Metadata).
+Ahead: full external-wallet registry interop for the token standard (the Splice
+TransferFactory/AllocationFactory DARs); and — to force the true second price even
+against a self-interested buyer — a trusted auctioneer or MPC (the latter would
+re-introduce exactly the cryptography Canton lets us skip).
 
 **11 · Close**
 Bisik. The confidential OTC desk that finally didn't need a cryptography stack —

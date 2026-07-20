@@ -16,6 +16,7 @@
     "devnet:verify": "node scripts/devnet.mjs verify",
     "mcp": "node mcp/server.mjs",
     "agent:demo": "node scripts/agent.mjs demo",
+    "token:demo": "node scripts/token-standard-demo.mjs",
     "e2e": "node scripts/e2e.mjs",
     "e2e:actions": "node scripts/e2e-actions.mjs",
     "e2e:bestexec": "node scripts/e2e-bestexec.mjs"

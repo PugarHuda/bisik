@@ -180,10 +180,14 @@ UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
 
 ## Opportunities (not done — future work)
 
-- **Full CIP-0056 token standard** for the cash/asset legs (external-wallet interop).
-  A CIP-0056-aligned in-package `Token` interface already ships; adopting the full
-  standard DARs is a package change, so it's deferred to keep the live Devnet package
-  id (`b0058535…`) frozen for this submission.
+- **External-wallet registry interop** for the token standard (the Splice
+  `TransferFactory`/`AllocationFactory` discovery DARs). The CIP-0056-*shape* now
+  ships and is live on Devnet — a separate `token-standard/` package (`d3b7c07e…`)
+  with a `Holding` interface, a two-step `TransferInstruction`, an atomic-DvP
+  `Allocation`, and a `Metadata` map; verified by four `daml test` scripts and live
+  on-ledger (`npm run token:demo`). Adopting the external standard DARs for
+  cross-package wallet discovery is the remaining step (kept separate so the live desk
+  package `b0058535…` stays frozen).
 - **MPC / trusted auctioneer** so even the buyer can't see losing bids and the *true*
   second price is forced against a self-interested buyer. Deliberately declined: MPC
   re-adds exactly the cryptography Canton lets us skip; a trusted auctioneer moves the

@@ -214,8 +214,14 @@ it leaves to the trusted auctioneer:
   Vickrey optimum. Forcing the *true* second price with full-set inclusion needs a
   trusted auctioneer or MPC; that is future work (and MPC would re-introduce exactly
   the cryptography Canton lets us skip).
-- Simple self-contained `Holding` token with issuer binding, not CIP-0056 — the
-  token standard is the next step.
+- The desk's legs use a self-contained `Holding` token with issuer binding (plus a
+  CIP-0056-aligned `Token` interface). A fuller, **CIP-0056-shaped token standard is
+  now implemented and live on Devnet** as a separate package (`token-standard/`,
+  package `d3b7c07e…`): a `Holding` interface + a two-step `TransferInstruction` +
+  an `Allocation` for atomic DvP, each threading a `Metadata` map — verified on-ledger
+  (`npm run token:demo`) and by four `daml test` scripts. Full cross-package registry
+  interop (external-wallet `TransferFactory`/`AllocationFactory` discovery via the
+  Splice DARs) is the remaining step; the on-ledger *shape* of the standard is done.
 - Single-round sealed bids. **Partial fills are supported** on both rails
   (`AcceptPartial` for direct OTC, `AwardPartial` for Vickrey — prorated).
   **Multi-instrument baskets are supported** (a BasketRFQ settles several legs +
