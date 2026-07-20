@@ -182,7 +182,7 @@ UI, and the v0.3.0 diff), and the full Award flow was driven through the UI.
 
 - **External-wallet registry interop** for the token standard (the Splice
   `TransferFactory`/`AllocationFactory` discovery DARs). The CIP-0056-*shape* now
-  ships and is live on Devnet — a separate `token-standard/` package (`05e4ebb9…`)
+  ships and is live on Devnet — a separate `token-standard/` package (`d969c045…`)
   with a `Holding` interface, a two-step `TransferInstruction`, an atomic-DvP
   `Allocation`, and a `Metadata` map; verified by four `daml test` scripts and live
   on-ledger (`npm run token:demo`). Adopting the external standard DARs for
@@ -302,9 +302,74 @@ regression run. Three real defects were found and fixed; all are covered by test
 | Playwright `e2e:actions` (fresh ledger) | **16/16** |
 | Playwright `e2e:bestexec` (fresh ledger) | **8/8** |
 | Devnet — desk audit book | 41 trades + 5 baskets + 32 disclosures, privacy verified |
-| Devnet — token standard live (`05e4ebb9…`) | transfer instruction + atomic DvP, on-ledger |
+| Devnet — token standard live (`d969c045…`) | transfer instruction + atomic DvP, on-ledger |
 | Hosted `bisik-eight.vercel.app` | pages 200, audit book intact, **writes still 403** |
 
 The public proxy stays read-only even though the MCP server gained a write tool:
 `post_rfq` submits directly to the ledger with the operator's local credentials, never
 through the hosted proxy — re-verified above (`403` on a public submit attempt).
+
+## Pass 4 — the public surface, the MCP surface, and package hygiene
+
+Pass 3 covered the model. This pass covers what a *judge* actually touches (the hosted
+build) and what an *agent* actually calls (MCP) — neither had ever been driven by a test
+— plus a structural cleanup of the new package.
+
+### New automated suites
+
+- **`npm run e2e:hosted`** (`scripts/e2e-hosted.mjs`) — drives the live public build with
+  Playwright across **Chromium, Firefox and WebKit**: landing page (title, meta
+  description, hero, particle canvas *actually animating* frame-to-frame, CTA that really
+  lands on a working desk, no horizontal overflow at 390px, clean render under
+  `prefers-reduced-motion`), then the read-only desk over live Devnet (offset + settled
+  tiles populated, read-only notice, all four sidebar views rendering real content,
+  best-execution attestations, audit rows, write controls inert but not crashing, zero
+  console/page errors). **66/66 across all three engines.**
+- **`npm run e2e:mcp`** (`scripts/e2e-mcp.mjs`) — drives the MCP server over real stdio
+  JSON-RPC against Devnet: tool discovery + schemas, every read tool, the privacy
+  assertions (`party_view(dealerA)` must not mention dealerB; `party_view(regulator)`
+  must show no pre-trade quotes), best-execution attestation count, the write tool, and
+  the **error paths** (unknown party, zero/negative quantity, unknown tool).
+  **25/25 passed.**
+
+### Defects found & fixed
+
+- ✅ **`explain_desk` told agents a falsehood.** It still ended with *"This MCP server is
+  read-only"* after `post_rfq` was added — a stale claim delivered straight into an AI
+  agent's context. Now states precisely which tool writes and that the hosted proxy stays
+  read-only. Caught by writing the MCP suite, not by reading the code.
+- ✅ **The deployable token DAR bundled test/script code.** `Test.daml` lived in the same
+  package as the templates, so the deployed artifact carried `daml-script` (and emitted
+  `template-interface-depends-on-daml-script`). Split into `token-standard/` (model, now
+  `bisik-token`) + `token-standard/test/` (scripts, data-dependency on the DAR) — the
+  same two-package split the desk already uses. The deployable DAR is now script-free,
+  and tests can grow without changing the deployed package id.
+- ⚠️ **A test asserted the wrong thing and passed for the wrong reason** (caught before
+  it could mislead): `testTransferExpiry` set a deadline of `1970-01-01T00:00:01`,
+  believing it was in the past — but Daml Script's clock *starts* at the epoch, so the
+  deadline was in the future and the "expired" case never ran. Rewritten to advance the
+  ledger clock with `setTime` past a 2030 deadline. Worth recording: a green test that
+  exercises nothing is worse than a missing one.
+
+### Added coverage (token standard, now 9 scripts)
+
+`testTransferExpiry` (accept rejected after the deadline; sender can still withdraw, so
+funds are never stranded) and `testAmountBoundaries` (split must be strictly inside
+`(0, amount)`; cannot transfer or allocate more than held; cannot merge different
+instruments — and nothing moves in any of those failures).
+
+### Regression status (all green)
+
+| Surface | Result |
+|---|---|
+| Desk Daml scripts (frozen `b0058535…`) | **27/27** |
+| Token-standard Daml scripts | **9/9** |
+| Playwright `e2e` / `e2e:actions` / `e2e:bestexec` (fresh ledger each) | **22/22 · 16/16 · 8/8** |
+| Playwright `e2e:hosted` — Chromium + Firefox + WebKit | **66/66** |
+| MCP `e2e:mcp` — all tools + error paths | **25/25** |
+| Read-only proxy self-check | **6/6** |
+| Devnet token standard (`d969c045…`) | transfer instruction + atomic DvP, on-ledger |
+| Hosted | pages 200 all engines, audit book intact, writes still 403 |
+
+CI now builds a four-package workspace (`.`, `./test`, `./token-standard`,
+`./token-standard/test`) and runs both Daml test suites.

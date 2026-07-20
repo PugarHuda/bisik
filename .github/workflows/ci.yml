@@ -32,7 +32,7 @@ jobs:
         run: daml test --no-legacy-assistant-warning
 
       - name: daml test (token-standard)
-        working-directory: token-standard
+        working-directory: token-standard/test
         run: daml test --no-legacy-assistant-warning
 
   js:

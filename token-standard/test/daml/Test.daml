@@ -155,6 +155,56 @@ testDvpRejectsForeignLeg = script do
   aliceBond === 0.0
   bobCash === 0.0
 
+-- A transfer cannot be accepted once its deadline has passed; the sender can still
+-- reclaim it, so funds are never stranded.
+testTransferExpiry : Script ()
+testTransferExpiry = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  let deadline = time (date 2030 Jan 1) 0 0 0
+  cash <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "USDC"; amount = 500.0; lock = None
+  ti <- submit alice do
+    exerciseCmd cash TokenTransfer with receiver = bob; transferAmount = 500.0; deadline; meta = noMeta
+  -- Move the ledger clock past the deadline: the receiver can no longer accept.
+  setTime (time (date 2030 Jan 2) 0 0 0)
+  submitMustFail bob do exerciseCmd ti AcceptTransfer
+  -- Not stranded: the sender withdraws and gets the full amount back.
+  _ <- submit alice do exerciseCmd ti WithdrawTransfer
+  aliceHas <- ownedAmount alice "USDC"
+  bobHas <- ownedAmount bob "USDC"
+  aliceHas === 500.0
+  bobHas === 0.0
+
+-- Amount and instrument boundaries are enforced.
+testAmountBoundaries : Script ()
+testAmountBoundaries = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  let far = time (date 2030 Jan 1) 0 0 0
+  usdc <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "USDC"; amount = 100.0; lock = None
+  eur <- submit issuer do
+    createCmd Token with issuer; owner = alice; instrument = "EUR"; amount = 50.0; lock = None
+  -- Split must be strictly inside (0, amount).
+  submitMustFail alice do exerciseCmd usdc TokenSplit with amt = 0.0
+  submitMustFail alice do exerciseCmd usdc TokenSplit with amt = 100.0
+  submitMustFail alice do exerciseCmd usdc TokenSplit with amt = 150.0
+  -- Cannot transfer or allocate more than is held.
+  submitMustFail alice do
+    exerciseCmd usdc TokenTransfer with receiver = bob; transferAmount = 100.1; deadline = far; meta = noMeta
+  submitMustFail alice do
+    exerciseCmd usdc AllocateForSettlement with receiver = bob; settlementId = "S1"; allocAmount = 100.1; meta = noMeta
+  -- Cannot merge holdings of different instruments.
+  submitMustFail alice do exerciseCmd usdc TokenMerge with otherCid = eur
+  -- Nothing above moved anything.
+  stillUsdc <- ownedAmount alice "USDC"
+  stillEur <- ownedAmount alice "EUR"
+  stillUsdc === 100.0
+  stillEur === 50.0
+
 -- Split then merge round-trips the amount.
 testSplitMerge : Script ()
 testSplitMerge = script do

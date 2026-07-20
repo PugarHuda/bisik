@@ -2,3 +2,4 @@ packages:
   - .
   - ./test
   - ./token-standard
+  - ./token-standard/test

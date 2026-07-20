@@ -159,7 +159,9 @@ async function handle(name, args) {
       '• A regulator observes the executed trade — and only the executed trade (auditable post-trade,',
       '  confidential pre-trade).',
       '',
-      'This MCP server is read-only. Deployed live on Canton Devnet.',
+      'Deployed live on Canton Devnet. This server\'s tools are read-only except post_rfq,',
+      "which submits a real RFQ on-ledger using the operator's local credentials (the public",
+      'hosted proxy stays read-only and rejects writes).',
     ].join('\n'));
   }
   if (name === 'list_settlements') {

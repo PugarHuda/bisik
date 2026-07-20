@@ -1,16 +1,16 @@
 sdk-version: 3.4.11
-name: bisik-token-standard-v3
+name: bisik-token
 version: 0.1.0
 source: daml
 # A native, CIP-0056-shaped token standard (Canton Network Token Standard core
 # shape) — Holding interface + a two-step TransferInstruction + an Allocation for
 # atomic settlement, each threading a Metadata map. Separate package from the live
-# desk (bisik-otc b0058535…), so the desk is untouched. Full external-registry
-# interop (cross-package TransferFactory/AllocationFactory discovery via the Splice
-# DARs) is the further step; this is the standard's on-ledger shape, native.
+# desk (bisik-otc b0058535…), so the desk is untouched. Tests live in ./test so this
+# deployable DAR carries no script code. Full external-registry interop
+# (cross-package TransferFactory/AllocationFactory discovery via the Splice DARs)
+# is the further step; this is the standard's on-ledger shape, native.
 build-options:
   - -Wno-upgrade-interfaces
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script
