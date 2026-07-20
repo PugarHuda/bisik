@@ -474,6 +474,36 @@ async function seedCases() {
     console.log('· basket      [OAT30 400 + JGB5Y 600] @ 1,050,000');
   }
 
+  // ── Extended spread — a broader institutional book on-chain (idempotent per instrument) ──
+  // More sovereigns (developed markets)
+  if (!doneInst.has('CAN10Y'))  { await vickrey2('CAN10Y', '1000.0', '985000.0', '992000.0', '1000000.0');           console.log('· Vickrey     CAN10Y 1000 @ 992,000 (Canada, 2nd price)'); }
+  if (!doneInst.has('ACGB10Y')) { await directOtc('ACGB10Y', '800.0', '824000.0', '824000.0');                       console.log('· direct OTC  ACGB10Y 800 @ 824,000 (Australia)'); }
+  if (!doneInst.has('DSL10Y'))  { await partial('DSL10Y', '1500.0', '1470000.0', '900.0', '1470000.0');              console.log('· partial     DSL10Y 900/1500 @ 882,000 (Netherlands)'); }
+  if (!doneInst.has('CONF10Y')) { await vickrey3('CONF10Y', '600.0', '588000.0', '594000.0', '600000.0', '600000.0'); console.log('· Vickrey×3   CONF10Y 600 @ 594,000 (Switzerland, 3 dealers)'); }
+  if (!doneInst.has('KTB10Y'))  { await directOtc('KTB10Y', '2000.0', '1940000.0', '1940000.0');                     console.log('· direct OTC  KTB10Y 2000 @ 1,940,000 (Korea)'); }
+  if (!doneInst.has('SGS10Y'))  { await vickrey2('SGS10Y', '1000.0', '978000.0', '985000.0', '1000000.0');           console.log('· Vickrey     SGS10Y 1000 @ 985,000 (Singapore)'); }
+  // Supranationals / agencies
+  if (!doneInst.has('IBRD28'))  { await vickrey2('IBRD28', '1500.0', '1485000.0', '1492000.0', '1500000.0');         console.log('· Vickrey     IBRD28 1500 @ 1,492,000 (World Bank)'); }
+  if (!doneInst.has('EIB30'))   { await directOtc('EIB30', '1000.0', '990000.0', '990000.0');                        console.log('· direct OTC  EIB30 1000 @ 990,000 (EIB)'); }
+  if (!doneInst.has('KFW27'))   { await partial('KFW27', '2000.0', '1960000.0', '1200.0', '1960000.0');              console.log('· partial     KFW27 1200/2000 @ 1,176,000 (KfW)'); }
+  // More corporates
+  if (!doneInst.has('AMZN32'))  { await vickrey3('AMZN32', '400.0', '408000.0', '414000.0', '420000.0', '420000.0'); console.log('· Vickrey×3   AMZN32 400 @ 414,000 (Amazon, 3 dealers)'); }
+  if (!doneInst.has('NVDA34'))  { await directOtc('NVDA34', '300.0', '318000.0', '318000.0');                        console.log('· direct OTC  NVDA34 300 @ 318,000 (Nvidia)'); }
+  if (!doneInst.has('GS30'))    { await partial('GS30', '500.0', '505000.0', '350.0', '505000.0');                   console.log('· partial     GS30 350/500 @ 353,500 (Goldman Sachs)'); }
+  // EM sovereigns
+  if (!doneInst.has('INGB33'))  { await vickrey2('INGB33', '1000.0', '910000.0', '925000.0', '1000000.0');           console.log('· Vickrey     INGB33 1000 @ 925,000 (India)'); }
+  if (!doneInst.has('INDON34')) { await directOtc('INDON34', '800.0', '760000.0', '760000.0');                       console.log('· direct OTC  INDON34 800 @ 760,000 (Indonesia)'); }
+  // 4th basket — a 3-leg European-periphery package (more legs = more detail on-chain)
+  if (reg.filter((e) => e.templateId.endsWith(':Bisik:BasketTradeReport')).length < 4) {
+    await basketTrade([['SPGB5Y', '500.0'], ['BTP5Y', '400.0'], ['OLO5Y', '300.0']], '1180000.0', '1180000.0');
+    console.log('· basket3     [SPGB5Y 500 + BTP5Y 400 + OLO5Y 300] @ 1,180,000 (3-leg periphery)');
+  }
+  // 5th basket — an Asia package
+  if (reg.filter((e) => e.templateId.endsWith(':Bisik:BasketTradeReport')).length < 5) {
+    await basketTrade([['KTB5Y', '1000.0'], ['SGS5Y', '800.0']], '1750000.0', '1750000.0');
+    console.log('· basket      [KTB5Y 1000 + SGS5Y 800] @ 1,750,000 (Asia)');
+  }
+
   // Extra OPEN RFQs on-chain (real un-settled data): the buyer holds several live
   // requests at once, each with two sealed quotes.
   const openInst = new Set((await acsAs(p.buyer)).filter((e) => e.templateId.endsWith(':Bisik:RFQ')).map((e) => e.createArgument.instrument));
@@ -594,6 +624,13 @@ async function seedBestExec() {
   // Partial rail — buyer takes part of the cheaper disclosed lot.
   await partial('UST20Y', '2000.0', '1900000.0', '1930000.0', '800.0', '2000000.0');
   await partial('SPGB10Y', '1000.0', '1120000.0', '1140000.0', '600.0', '1200000.0');
+  // ── Extended attestations — more instruments across all three rails (fresh maturities) ──
+  await auction('CAN7Y', '1000.0', '980000.0', '990000.0', '1000000.0');              // Canada · Vickrey
+  await auction('SGS7Y', '1000.0', '970000.0', '982000.0', '1000000.0');              // Singapore · Vickrey
+  await directOtc('ACGB5Y', '800.0', '810000.0', '822000.0', '850000.0');             // Australia · direct OTC
+  await directOtc('INDON30', '800.0', '745000.0', '758000.0', '800000.0');            // Indonesia · direct OTC
+  await partial('NVDA30', '500.0', '320000.0', '328000.0', '300.0', '330000.0');      // Nvidia · partial
+  await partial('IBRD30', '1000.0', '1480000.0', '1495000.0', '600.0', '1500000.0');  // World Bank · partial
   console.log('seed-bestexec done — best execution proven across Vickrey, direct-OTC, and partial-fill rails.');
 }
 
