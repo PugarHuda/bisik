@@ -43,18 +43,22 @@ Why Vickrey? Dealers can quote their true reserve price without shading — the 
 
 ## Layout
 
-Two packages, so the deployable model DAR carries no test/script code:
+Four Daml packages, so every deployable DAR carries no test/script code:
 
 ```
 daml/Bisik.daml           model — the whole product (bisik-otc-0.6.0.dar → deploy this)
 test/daml/BisikTest.daml  end-to-end script + privacy assertions
 test/daml/Init.daml       on-ledger seed: parties + an open RFQ (LocalNet/Devnet demo)
 web/                      the desk UI: 3 party views + JSON Ledger API proxy (Node stdlib)
-mcp/                      read-only MCP server — the desk as AI-native tools
+mcp/                      MCP server — the desk as AI-native tools (5 read + post_rfq write)
+token-standard/           CIP-0056-shaped token standard (bisik-token-0.1.0.dar) + its tests
+scripts/                  deployer, agents, and the Playwright/MCP QA suites
 multi-package.yaml        workspace
 ```
 
 ## Hosted demo (live Devnet, read-only)
+
+> **Pitch deck → [bisik-eight.vercel.app/deck](https://bisik-eight.vercel.app/deck)** (13 slides, arrow keys / swipe · [PDF](https://bisik-eight.vercel.app/deck.pdf))
 
 **[bisik-eight.vercel.app](https://bisik-eight.vercel.app)** — a landing page → **Open the
 desk** ([/app](https://bisik-eight.vercel.app/app)) serves the desk over live Canton
@@ -65,7 +69,7 @@ submission is disabled on the public URL. To drive the full flow yourself, run i
 
 The sidebar carries four read views over the same live ledger: **Verify privacy** (a
 live count of what each node actually holds + a "what a transparent chain would leak"
-contrast), **Best execution** (10 green attestations proving, from selectively-disclosed
+contrast), **Best execution** (16 green attestations proving, from selectively-disclosed
 asks, that the buyer beat every competitor — across the Vickrey, direct-OTC and
 partial-fill rails, with no public order book), **Audit trail** (the regulator's settled
 record + disclosures), and **Portfolio** (holdings per party). Every model choice —
@@ -232,7 +236,7 @@ See `QA.md` for the full multi-angle review (bugs fixed, accepted scope, opportu
 
 ## Submission assets
 
-- **Pitch deck** — `slides/index.html` (open in a browser; arrow keys to navigate, print → PDF to export)
+- **Pitch deck** — **[bisik-eight.vercel.app/deck](https://bisik-eight.vercel.app/deck)** (13 slides; arrow keys / swipe to navigate) · PDF at [/deck.pdf](https://bisik-eight.vercel.app/deck.pdf) · source `slides/index.html`
 - **Demo storyboard** — `DEMO-SCRIPT.md` (3-min video, the money shot beat by beat)
 - **Screen capture** — `media/` (per-step screenshots + a silent video to narrate over)
 - **Deck outline** — `DECK.md`

@@ -1,7 +1,14 @@
 # Bisik — pitch deck outline
 
-Build on Canton Hackathon · Private DeFi & Capital Markets. ~11 slides.
-(Authoritative deck: `slides/index.html` → `slides/bisik-deck.pdf`. This is the outline.)
+Build on Canton Hackathon · spans all three tracks. **13 slides.**
+
+**Authoritative deck: [bisik-eight.vercel.app/deck](https://bisik-eight.vercel.app/deck)**
+— arrow keys, space or swipe to navigate · PDF at `/deck.pdf` · source `slides/index.html`.
+This file is the outline and the speaker's intent behind each slide.
+
+Slides 9 (CIP-0056 token standard, live on Devnet) and 11 (engineering rigor — 36 Daml
+scripts, 143 automated checks, and the real bugs adversarial QA caught) are newer than the
+outline below; see the live deck for their final wording.
 
 ---
 
@@ -44,7 +51,7 @@ A public exchange audits best execution against a visible order book. Bisik has
 none — pre-trade stays confidential — yet the regulator still proves it: either
 side can *selectively disclose* a sealed ask to the regulator on demand (never to
 rivals), and the desk confirms the winner quoted the lowest ask and the buyer paid
-no worse than any competitor. **Live on Devnet: 10 green attestations across all
+no worse than any competitor. **Live on Devnet: 16 green attestations across all
 three rails** (Vickrey, direct OTC, partial fill). Confidential pre-trade, *provable*
 post-trade. [Screenshot: the Best-execution view.]
 

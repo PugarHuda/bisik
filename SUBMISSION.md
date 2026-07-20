@@ -38,7 +38,7 @@ no clean audit trail. $30B+/month still trades this way.
   pre-trade stays confidential — yet the regulator still proves it. From the sealed
   asks the counterparties selectively disclose to it, the desk confirms the winner
   quoted the lowest ask and the buyer paid no worse than any competitor. **Live on
-  Devnet: 10 green attestations across all three rails** (Vickrey, direct OTC, partial
+  Devnet: 16 green attestations across all three rails** (Vickrey, direct OTC, partial
   fill) and asset classes. Confidential pre-trade, *provable* post-trade — the
   institutional payoff, in a dedicated **Best execution** view and an MCP tool.
 - **Web desk** — three party views of one ledger over the JSON Ledger API; watch a
@@ -65,11 +65,17 @@ no clean audit trail. $30B+/month still trades this way.
   invited to and auto-quote, blind to their rivals. The demo runs a full round-trip
   between agents (two dealers quote, a buyer-agent awards) that settles a real
   Vickrey-cleared `TradeReport` on Devnet — no human sets the price.
-- **Every model choice is drivable in the UI.** **27 Daml behavioural scripts are
-  CI-gated** (build + `daml test` on every push); on top of them, **three Playwright
-  suites click the real desk end-to-end** (`e2e` 20/20 · `e2e:actions` 16/16 ·
-  `e2e:bestexec` 8/8, run locally against a live sandbox + browser). Deployed live on
-  Canton Devnet.
+- **A CIP-0056-shaped token standard, live on Devnet** — its own package (`bisik-token`,
+  `d969c045…`): a `Holding` interface with a real lock, a **two-step `TransferInstruction`**
+  (propose → accept/reject/withdraw, with expiry so funds are never stranded), and an
+  **`Allocation` + `DvpSettlement`** that settles two legs in one transaction — neither side
+  can claim a leg unilaterally. Verified on-ledger, not just compiled.
+- **Every model choice is drivable in the UI, and everything is tested.** **36 Daml
+  behavioural scripts** across a CI-gated four-package workspace, plus **143 automated
+  checks**: five suites driving the real desk (`e2e` 22/22 · `e2e:actions` 16/16 ·
+  `e2e:bestexec` 8/8), the **live hosted build across Chromium, Firefox and WebKit**
+  (`e2e:hosted` 66/66), and the **MCP server over real JSON-RPC** (`e2e:mcp` 25/25),
+  plus a read-only-proxy self-check (6/6). Deployed live on Canton Devnet.
 
 ## Why Canton (the differentiator)
 We built this exact product four times before — iExec (TEE), Stellar (ZK circuits),
@@ -79,8 +85,8 @@ ledger's data model. This is the case *for* Canton, made by someone who tried th
 alternatives.
 
 ## How it maps to the judging criteria
-- **Technical execution** — clean two-package Daml; 27 behavioural scripts (privacy, Vickrey 1/2/3,
-  escrow guard, issuer binding, cross-RFQ, deadline, one-quote-per-dealer, partial fills both rails, baskets, token interface, symmetric selective disclosure) + three Playwright suites clicking every choice end-to-end; CI; deployed + verified on Devnet.
+- **Technical execution** — a clean four-package Daml workspace; 36 behavioural scripts (privacy, Vickrey 1/2/3,
+  escrow guard, issuer binding, cross-RFQ, deadline, one-quote-per-dealer, partial fills both rails, baskets, token interface, symmetric selective disclosure, plus the token standard's transfer/expiry/lock/atomic-DvP cases) + 143 automated checks including cross-browser and MCP suites; CI; deployed + verified on Devnet. Adversarial QA caught and fixed real defects — a unilaterally-revocable escrow, a counterfeit-asset path, and a DvP leg that could be claimed one-sidedly — each now a named regression test.
 - **Originality** — provable best execution with no public order book; an agent that
   verifies the ledger's privacy for itself; a desk built five times that finally needed
   no cryptography stack.
@@ -99,6 +105,9 @@ Prizes are awarded to the top 3 *across all tracks*, and Bisik is deliberately b
   US Treasuries (2Y/5Y/10Y/30Y), UK Gilts, German Bunds, French OAT, Japanese JGB,
   corporate bonds (Apple/Microsoft/Alphabet/Tesla/JPMorgan), EM sovereigns (Mexico/Brazil),
   settled against tokenized USD cash — atomic DvP, issuer-bound. Real instruments, real settlement.
+  On top of that, a **CIP-0056-shaped token standard is deployed and verified on Devnet**
+  (`Holding` + two-step `TransferInstruction` + `Allocation`-based atomic DvP), so the
+  tokenization is a standard-shaped primitive, not a bespoke one-off.
 - **3 · Payments, Neobanking & Agentic Commerce** — an **MCP server** exposes the desk as
   AI-native tools and **autonomous market-maker agents** coordinate a complete commercial
   action end-to-end: two dealer-agents quote blind to rivals, a buyer-agent awards, and the
@@ -107,6 +116,7 @@ Prizes are awarded to the top 3 *across all tracks*, and Bisik is deliberately b
 
 ## Links
 - Repository: https://github.com/PugarHuda/bisik
+- Pitch deck: **https://bisik-eight.vercel.app/deck** (13 slides · PDF at `/deck.pdf`)
 - Live product: **https://bisik-eight.vercel.app** — hosted read-only desk over
   live Canton Devnet state (three party views prove the privacy model; actions are
   disabled on the public URL). Full interactive: `npm run demo` (local).
@@ -117,7 +127,7 @@ Prizes are awarded to the top 3 *across all tracks*, and Bisik is deliberately b
   Visual assets to narrate over: **`media/bisik-pitch.mp4`** (a 39s animated Remotion
   pitch, `video/`) and **`media/bisik-demo-full.webm`** (a screen-driven desk B-roll).
   Encode requires the presenter's own voice, so these are the visuals — record narration on top.
-- Deck: **`slides/bisik-deck.pdf`** (11 slides, pre-rendered) · source `slides/index.html`
+- Deck: **[bisik-eight.vercel.app/deck](https://bisik-eight.vercel.app/deck)** (13 slides) · PDF **`slides/bisik-deck.pdf`** (also at `/deck.pdf`) · source `slides/index.html`
 
 ## How judges try it
 
@@ -144,7 +154,7 @@ daml build --all && cd test && daml test   # 27 scripts green (incl. privacy + V
 npm run demo                                # sandbox → seed → desk at http://localhost:8080
 #   → open http://localhost:8080, create an RFQ, quote as both dealers, Award (Vickrey)
 npm run agent:demo                          # the autonomous market-maker quotes an RFQ
-cd mcp && npm install && npm start          # the desk as read-only MCP tools for an AI agent
+cd mcp && npm install && npm start          # the desk as MCP tools for an AI agent (post_rfq writes)
 ```
 
 **3 · Verify the Devnet privacy claim directly.** `npm run devnet:verify` prints each
@@ -155,7 +165,7 @@ pre-trade. Full Devnet deploy steps in `README.md`; the multi-angle QA record in
 - [x] Public repository — github.com/PugarHuda/bisik
 - [x] Deployed live on Canton Devnet (not LocalNet) — verified on-ledger
 - [x] Link to live product — **https://bisik-eight.vercel.app** (hosted, read-only over live Devnet) + `npm run demo`
-- [x] Presentation deck — `slides/bisik-deck.pdf` (11 slides)
+- [x] Presentation deck — live at `/deck`, PDF `slides/bisik-deck.pdf` (13 slides)
 - [ ] 3-minute video pitch + demo — **record with your own voice** (Encode rule);
       read-aloud script in `DEMO-VO.md`, storyboard in `DEMO-SCRIPT.md`, captures in `media/`
 

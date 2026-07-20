@@ -6,6 +6,8 @@
     { "source": "/api/(.*)", "destination": "/api/proxy?path=$1" },
     { "source": "/", "destination": "/web/index.html" },
     { "source": "/index.html", "destination": "/web/index.html" },
+    { "source": "/deck", "destination": "/slides/index.html" },
+    { "source": "/deck.pdf", "destination": "/slides/bisik-deck.pdf" },
     { "source": "/app", "destination": "/web/app.html" },
     { "source": "/app.html", "destination": "/web/app.html" },
     { "source": "/app.js", "destination": "/web/app.js" },
