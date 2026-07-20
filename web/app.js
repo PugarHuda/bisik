@@ -562,6 +562,8 @@ async function createRFQ() {
       toast('RFQ sent to the dealer panel'); await refresh();
     } catch (e) { toast(e.message, true); }
   });
+  // after guarded() re-enabled the button, keep keyboard focus anchored (not on <body>)
+  document.getElementById('btn-create-rfq')?.focus();
 }
 
 async function submitQuote(role, rfqCid, bondCid, tpl, priceRaw, btn) {
@@ -667,6 +669,7 @@ async function createBasketRFQ() {
       toast('Basket RFQ sent to the dealer panel'); await refresh();
     } catch (e) { toast(e.message, true); }
   });
+  document.getElementById('btn-create-basket')?.focus();
 }
 async function quoteBasket(role, rfqCid, tpl, assetsCsv, priceRaw, btn) {
   if (READONLY) return toast(RO_MSG);
