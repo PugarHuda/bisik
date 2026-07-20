@@ -77,7 +77,10 @@ async function acsAs(party) {
     .map((e) => ({ tpl: e.templateId.split(':').slice(-1)[0], arg: e.createArgument }));
 }
 
-const resolveParty = (roleOrId) => PARTIES[roleOrId] ?? roleOrId;
+// A configured role → its party id, or a full "id::namespace" passed through directly.
+// A bare role with no config resolves to undefined so the "no parties configured" guards
+// fire, instead of sending "regulator" to the ledger and getting a cryptic error.
+const resolveParty = (roleOrId) => PARTIES[roleOrId] ?? (String(roleOrId).includes('::') ? roleOrId : undefined);
 
 const TOOLS = [
   {

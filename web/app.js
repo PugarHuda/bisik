@@ -147,9 +147,12 @@ function holdingsHtml(contracts, owner) {
 }
 
 function renderBuyer(mine) {
+  const box = document.getElementById('buyer-quotes');
+  // Don't clobber a half-typed partial-fill input (and its focus) mid-edit — the
+  // 1.8s poll would otherwise wipe it. Mirrors the dealer-panel guard.
+  if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
   const rfqs = mine.filter((c) => is(c, 'RFQ'));
   const allQuotes = mine.filter((c) => is(c, 'Quote'));
-  const box = document.getElementById('buyer-quotes');
   awardable = null;
 
   // Scope everything to ONE RFQ: the first that has quotes (else the first open).
@@ -545,7 +548,7 @@ async function createRFQ() {
         // Daml Time as RFC3339 without fractional seconds (the form the ledger's
         // codec is known to accept everywhere else); open for 24h.
         deadline: new Date(Date.now() + 86400000).toISOString().replace(/\.\d+Z$/, 'Z') } } });
-      toast('RFQ sent to the dealer panel'); refresh();
+      toast('RFQ sent to the dealer panel'); await refresh();
     } catch (e) { toast(e.message, true); }
   });
 }
@@ -585,6 +588,8 @@ async function partialFill(quoteCid, tpl, cashCid, fillRaw, btn) {
   if (READONLY) return toast(RO_MSG);
   const fill = posDec(fillRaw);
   if (!fill) return toast('fill quantity must be a positive number', true);
+  const max = Number(document.getElementById('fill-' + quoteCid)?.max);
+  if (max && Number(fill) > max) return toast('fill exceeds the quote quantity', true);
   await guarded(btn, async () => {
     try {
       await submit(P.buyer, { ExerciseCommand: { templateId: tpl, contractId: quoteCid,
@@ -648,7 +653,7 @@ async function createBasketRFQ() {
         buyer: P.buyer, regulator: P.regulator, invitedDealers: [P.dealerA, P.dealerB],
         legs: basketLegs(), payInstrument: 'USDC', payIssuer: CFG_PARTIES.cashIssuer ?? null,
         deadline: new Date(Date.now() + 86400000).toISOString().replace(/\.\d+Z$/, 'Z') } } });
-      toast('Basket RFQ sent to the dealer panel'); refresh();
+      toast('Basket RFQ sent to the dealer panel'); await refresh();
     } catch (e) { toast(e.message, true); }
   });
 }

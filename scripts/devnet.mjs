@@ -607,6 +607,9 @@ async function tidy() {
     .map((q) => q.createArgument.rfqId).filter(Boolean));
   const orphans = rfqs.filter((r) => !quotedRfqIds.has(r.contractId));
   if (!orphans.length) { console.log('tidy: no orphan RFQs.'); return; }
+  // NB: this cancels EVERY quote-less RFQ — including one that's genuinely open and
+  // still waiting for its first quote. Only run tidy when no live RFQ is intended.
+  console.log(`tidy: cancelling ${orphans.length} quote-less RFQ(s) — this also cancels any RFQ still awaiting its first quote.`);
   for (const r of orphans) {
     await submit(p.buyer, { ExerciseCommand: { templateId: `${PKG}:Bisik:RFQ`, contractId: r.contractId, choice: 'CancelRFQ', choiceArgument: {} } });
     console.log(`· cancelled orphan RFQ ${r.createArgument.instrument} qty ${r.createArgument.quantity}`);

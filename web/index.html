@@ -301,7 +301,8 @@
   size();
   if(reduce){ draw(); return; }
   raf=requestAnimationFrame(loop);
-  addEventListener('resize',()=>{ cancelAnimationFrame(raf); size(); raf=requestAnimationFrame(loop); },{passive:true});
+  let rz; addEventListener('resize',()=>{ cancelAnimationFrame(rz);
+    rz=requestAnimationFrame(()=>{ size(); if(!document.hidden){ cancelAnimationFrame(raf); raf=requestAnimationFrame(loop); } }); },{passive:true});
   document.addEventListener('visibilitychange',()=>{ if(document.hidden){cancelAnimationFrame(raf);raf=0;} else if(!raf){raf=requestAnimationFrame(loop);} });
 })();
 </script>

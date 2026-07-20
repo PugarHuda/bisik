@@ -72,7 +72,8 @@ async function allocate(hint) {
   return party;
 }
 async function acs(party) {
-  const off = (await api('/v2/state/ledger-end')).data.offset;
+  const off = (await api('/v2/state/ledger-end')).data?.offset;
+  if (typeof off !== 'number') throw new Error('ledger-end returned no offset (ledger unreachable?)');
   const r = await api('/v2/state/active-contracts', { method: 'POST', json: {
     filter: { filtersByParty: { [party]: { cumulative: [] } } }, verbose: true, activeAtOffset: off } });
   return (Array.isArray(r.data) ? r.data : []).map((x) => x.contractEntry?.JsActiveContract?.createdEvent)
