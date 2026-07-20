@@ -1,0 +1,103 @@
+1
+00:00:03,848 --> 00:00:17,516
+When an institution moves a large block of bonds, it cannot simply post it — the moment the order and the competing bids are visible, the market front-runs it.
+
+2
+00:00:17,516 --> 00:00:20,087
+Bisik is a confidential over-the-counter desk built natively on Canton.
+
+3
+00:00:20,087 --> 00:00:25,330
+You whisper quotes, and the market hears nothing.
+
+4
+00:00:25,330 --> 00:00:29,907
+We have built this same product four times before, on four different chains.
+
+5
+00:00:29,907 --> 00:00:34,304
+Every time, most of the work was cryptography fighting the ledger. On Canton, that machinery disappears.
+
+6
+00:00:34,304 --> 00:00:41,611
+Let me show you the desk itself, running against a live Canton ledger.
+
+7
+00:00:41,611 --> 00:00:47,568
+These three columns are one ledger seen by three parties: a buyer and two competing dealers.
+
+8
+00:00:47,568 --> 00:00:50,478
+Each column shows only what that party’s own node actually received.
+
+9
+00:00:50,478 --> 00:01:00,323
+The buyer opens a request for quote: a thirty-year treasury, one thousand units, paid in tokenised dollars.
+
+10
+00:01:00,323 --> 00:01:01,683
+The market never sees this. Only the invited dealers do.
+
+11
+00:01:01,683 --> 00:01:11,717
+Dealer A now sees the request, and answers with a sealed quote — four million, two hundred and ten thousand.
+
+12
+00:01:11,717 --> 00:01:14,520
+Watch what happens on the right.
+
+13
+00:01:14,520 --> 00:01:21,695
+Dealer B's column is empty. Not a masked row. Not a hidden-bid placeholder. Nothing at all.
+
+14
+00:01:21,695 --> 00:01:31,115
+Dealer A's quote was never transmitted to Dealer B's node. That is not the interface hiding it — it is the ledger never sending it.
+
+15
+00:01:31,115 --> 00:01:38,782
+Dealer B quotes too — four million, two hundred and fifty thousand — completely blind to its rival.
+
+16
+00:01:38,782 --> 00:01:44,195
+The buyer now holds both sealed quotes. Neither dealer can see the other.
+
+17
+00:01:44,195 --> 00:01:51,643
+Either side can reveal one sealed quote to a regulator on demand — never to a rival, never in public.
+
+18
+00:01:51,643 --> 00:02:00,631
+Now the buyer awards. The cheapest dealer wins — but is paid the second price, four million two hundred and fifty thousand.
+
+19
+00:02:00,631 --> 00:02:04,739
+Cash and bond move in a single atomic transaction: both legs, or neither.
+
+20
+00:02:04,739 --> 00:02:14,771
+You don’t have to trust the privacy. This view queries what each node actually holds:
+
+21
+00:02:14,771 --> 00:02:21,544
+each dealer sees only its own quote, and the regulator sees nothing before settlement.
+
+22
+00:02:21,544 --> 00:02:26,248
+This is what institutions actually need. A public exchange proves best execution against a visible order book.
+
+23
+00:02:26,248 --> 00:02:32,463
+Bisik has no order book — and still proves it, from the sealed asks disclosed to the regulator.
+
+24
+00:02:32,463 --> 00:02:48,733
+The same desk runs autonomously: two market-maker agents quote blind to each other, a buyer agent awards, and a real trade settles on Devnet at the second price — with no human in the pricing loop.
+
+25
+00:02:48,733 --> 00:02:58,309
+None of this is a mock-up. Forty-one settled trades, five atomic baskets and sixteen best-execution attestations are live on Canton Devnet right now.
+
+26
+00:02:58,309 --> 00:03:05,804
+Bisik — the confidential OTC desk that finally didn’t need a cryptography stack, because Canton already is one.
