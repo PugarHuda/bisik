@@ -11,6 +11,7 @@
     "demo:cases": "node scripts/demo-local.mjs --cases",
     "record": "node scripts/record.mjs",
     "record:video": "node scripts/record-video.mjs",
+    "record:demo": "node scripts/record-demo.mjs",
     "devnet:upload": "node scripts/devnet.mjs upload .daml/dist/bisik-otc-0.6.0.dar",
     "devnet:seed": "node scripts/devnet.mjs seed",
     "devnet:verify": "node scripts/devnet.mjs verify",

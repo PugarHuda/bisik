@@ -84,8 +84,16 @@ Daml SDK 3.4 (`daml`), Java 21, and Node ≥ 20.
 ```bash
 npm run demo          # build → sandbox → seed (holdings) → desk at http://localhost:8080
 npm run demo:full     # same, but pre-seeds an RFQ + two sealed quotes
-npm run record        # drive the money shot with Playwright → media/ screenshots + video
+npm run record        # drive the money shot with Playwright → media/ screenshots
+npm run record:demo   # record the full 4:35 live demo (landing → desk → deck)
 ```
+
+`record:demo` drives the real product with a **visible cursor and smooth motion**,
+covering the landing page, every desk feature (RFQ → sealed quotes → the money shot →
+selective disclosure → Vickrey award), all four read views, and the pitch deck. It
+writes `media/bisik-live-demo.webm` plus **subtitles generated from the measured
+timeline** (`.srt`/`.vtt`) and `DEMO-LIVE-SCRIPT.md` — the narration with real
+timecodes, to read in your own voice over the silent capture.
 
 <p align="center"><img src="media/03-dealerA-quoted-dealerB-blind.png" width="880"
   alt="Dealer A has quoted; Dealer B's column shows nothing — the quote was never sent to their node" /></p>
