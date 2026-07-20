@@ -61,8 +61,10 @@ no clean audit trail. $30B+/month still trades this way.
 - **MCP server** — the desk as AI-native tools; an agent can *verify Canton's privacy
   itself* (`party_view(dealerA)` returns only its own quote) and *audit best execution*
   (`best_execution` attests each settled trade against the disclosed asks).
-- **Autonomous market-maker agent** — a software agent that watches for RFQs it's
-  invited to and auto-quotes, blind to its rivals.
+- **Autonomous market-maker agents** — software agents that watch for RFQs they're
+  invited to and auto-quote, blind to their rivals. The demo runs a full round-trip
+  between agents (two dealers quote, a buyer-agent awards) that settles a real
+  Vickrey-cleared `TradeReport` on Devnet — no human sets the price.
 - **Every model choice is drivable in the UI.** **27 Daml behavioural scripts are
   CI-gated** (build + `daml test` on every push); on top of them, **three Playwright
   suites click the real desk end-to-end** (`e2e` 20/20 · `e2e:actions` 16/16 ·
@@ -98,9 +100,10 @@ Prizes are awarded to the top 3 *across all tracks*, and Bisik is deliberately b
   corporate bonds (Apple/Microsoft/Alphabet/Tesla/JPMorgan), EM sovereigns (Mexico/Brazil),
   settled against tokenized USD cash — atomic DvP, issuer-bound. Real instruments, real settlement.
 - **3 · Payments, Neobanking & Agentic Commerce** — an **MCP server** exposes the desk as
-  AI-native tools and an **autonomous market-maker agent** initiates commercial actions
-  (auto-quotes RFQs it's invited to, blind to rivals) — a software agent transacting safely
-  under Canton's privacy model.
+  AI-native tools and **autonomous market-maker agents** coordinate a complete commercial
+  action end-to-end: two dealer-agents quote blind to rivals, a buyer-agent awards, and the
+  trade settles at the Vickrey price as a real on-Devnet `TradeReport` — software agents
+  transacting safely under Canton's privacy model, with no human in the pricing loop.
 
 ## Links
 - Repository: https://github.com/PugarHuda/bisik

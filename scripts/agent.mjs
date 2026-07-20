@@ -82,6 +82,9 @@ async function acs(party) {
 const isT = (c, n) => typeof c.tpl === 'string' && c.tpl.endsWith('Bisik:' + n);
 
 async function discoverPkg() {
+  // Fast path: on a busy shared validator, scanning every party's ACS is slow —
+  // let BISIK_PKG name the package id directly (same knob devnet.mjs uses).
+  if (ENV.BISIK_PKG) return ENV.BISIK_PKG;
   const parties = (await api('/v2/parties')).data?.partyDetails ?? [];
   for (const p of parties) {
     const any = (await acs(p.party)).find((c) => typeof c.tpl === 'string' && c.tpl.includes(':Bisik:'));
@@ -91,11 +94,11 @@ async function discoverPkg() {
 }
 
 // The agent's pricing decision: a fixed reference ask plus a configurable markup.
-const priceFor = () => (REF_PRICE * (1 + MARKUP_BPS / 10000)).toFixed(1);
+const priceFor = (markupBps = MARKUP_BPS) => (REF_PRICE * (1 + markupBps / 10000)).toFixed(1);
 
 // One pass of the agent loop: quote every RFQ this dealer is invited to, has a
 // matching unpledged asset for, and hasn't already quoted.
-async function quotePass(pkg, dealer) {
+async function quotePass(pkg, dealer, markupBps = MARKUP_BPS) {
   const mine = await acs(dealer);
   const rfqs = mine.filter((c) => isT(c, 'RFQ'));
   const alreadyQuotedRfq = new Set(mine.filter((c) => isT(c, 'Quote') && c.arg.dealer === dealer).map((c) => c.arg.rfqId));
@@ -105,10 +108,10 @@ async function quotePass(pkg, dealer) {
     if (alreadyQuotedRfq.has(r.cid)) continue;
     const bond = bonds.find((b) => b.arg.instrument === r.arg.instrument && Number(b.arg.amount) === Number(r.arg.quantity));
     if (!bond) { console.log(`· skip RFQ ${r.arg.instrument} ×${r.arg.quantity} — no matching asset`); continue; }
-    const price = priceFor();
+    const price = priceFor(markupBps);
     await submit(dealer, { ExerciseCommand: { templateId: r.tpl, contractId: r.cid, choice: 'SubmitQuote',
       choiceArgument: { dealer, price, assetCid: bond.cid } } });
-    console.log(`· detected RFQ ${r.arg.instrument} ×${r.arg.quantity} → sealed quote ${Number(price).toLocaleString()} (ref ${REF_PRICE.toLocaleString()} + ${MARKUP_BPS}bps)`);
+    console.log(`· detected RFQ ${r.arg.instrument} ×${r.arg.quantity} → sealed quote ${Number(price).toLocaleString()} (ref ${REF_PRICE.toLocaleString()} + ${markupBps}bps)`);
     quoted++;
   }
   return quoted;
@@ -117,26 +120,64 @@ async function quotePass(pkg, dealer) {
 async function demo() {
   const pkg = await discoverPkg();
   console.log('agent online · package', pkg.slice(0, 8), '· ledger', LEDGER);
-  const [buyer, dealer, regulator, cashIssuer, bondIssuer] = await Promise.all(
-    ['AgentBuyer', 'MarketMaker', 'AgentRegulator', 'AgentCash', 'AgentBond'].map(allocate));
+  // Unique party hints per run so the demo is cleanly repeatable on a shared ledger.
+  const RUN = Date.now().toString(36).slice(-5);
+  const [buyer, dealerA, dealerB, regulator, cashIssuer, bondIssuer] = await Promise.all(
+    [`AgentBuyer-${RUN}`, `MarketMakerA-${RUN}`, `MarketMakerB-${RUN}`, `AgentReg-${RUN}`, `AgentCash-${RUN}`, `AgentBond-${RUN}`].map(allocate));
   const H = (issuer, owner, instrument, amount) => ({ CreateCommand: { templateId: `${pkg}:Bisik:Holding`,
     createArguments: { issuer, owner, instrument, amount } } });
   await submit(cashIssuer, H(cashIssuer, buyer, 'USDC', '5000000.0'));
-  await submit(bondIssuer, H(bondIssuer, dealer, 'TBOND30', '1000.0'));
-  // A human/other-system posts the RFQ inviting our market-maker agent.
+  await submit(bondIssuer, H(bondIssuer, dealerA, 'TBOND30', '1000.0'));
+  await submit(bondIssuer, H(bondIssuer, dealerB, 'TBOND30', '1000.0'));
+  // A human/other system posts the RFQ, inviting both market-maker agents.
   const rfq = cidOf(await submit(buyer, { CreateCommand: { templateId: `${pkg}:Bisik:RFQ`, createArguments: {
-    buyer, regulator, invitedDealers: [dealer], instrument: 'TBOND30', quantity: '1000.0', payInstrument: 'USDC',
+    buyer, regulator, invitedDealers: [dealerA, dealerB], instrument: 'TBOND30', quantity: '1000.0', payInstrument: 'USDC',
     assetIssuer: bondIssuer, payIssuer: cashIssuer, deadline: '2030-01-01T00:00:00Z' } } }));
-  console.log('· a buyer posted an RFQ (TBOND30 ×1000), inviting the market-maker\n');
+  console.log('· a buyer posted an RFQ (TBOND30 ×1000), inviting two market-maker agents\n');
 
-  console.log('agent watching…');
-  const n = await quotePass(pkg, dealer);           // autonomous reaction
-  if (n !== 1) throw new Error(`expected the agent to place 1 quote, placed ${n}`);
-  // Prove it landed, sealed to the buyer.
-  const buyerSees = (await acs(buyer)).filter((c) => isT(c, 'Quote'));
-  const idle = await quotePass(pkg, dealer);         // idempotent: nothing new to do
-  console.log(`\n✓ buyer received ${buyerSees.length} sealed quote from the agent; re-run placed ${idle} (idempotent).`);
-  if (buyerSees.length !== 1 || idle !== 0) throw new Error('agent verification failed');
+  console.log('agents watching…');
+  // Each dealer-agent prices independently, blind to the rival — different markups.
+  const nA = await quotePass(pkg, dealerA, 80);   // MarketMaker A: +0.80%
+  const nB = await quotePass(pkg, dealerB, 140);  // MarketMaker B: +1.40%
+  if (nA !== 1 || nB !== 1) throw new Error(`expected 1 quote from each agent, got A=${nA} B=${nB}`);
+
+  // Privacy proof: on the ledger, each dealer's node holds only its own quote.
+  const aSees = (await acs(dealerA)).filter((c) => isT(c, 'Quote'));
+  const bSees = (await acs(dealerB)).filter((c) => isT(c, 'Quote'));
+  if (aSees.length !== 1 || bSees.length !== 1) throw new Error('privacy check failed — a dealer saw more than its own quote');
+  console.log('· each dealer-agent sees exactly its own quote — blind to the rival ✓');
+
+  // Autonomous buyer-agent: read the sealed quotes, award. The buyer never sets a
+  // price — the on-ledger Award choice picks the winner and clears at the Vickrey
+  // (second) price. Two software agents coordinate a real trade, privately.
+  const buyerAcs = await acs(buyer);
+  const myQuotes = buyerAcs.filter((c) => isT(c, 'Quote') && c.arg.rfqId === rfq);
+  if (myQuotes.length !== 2) throw new Error(`buyer expected 2 sealed quotes, saw ${myQuotes.length}`);
+  const cash = buyerAcs.find((c) => isT(c, 'Holding') && c.arg.instrument === 'USDC');
+  // Award settles DvP atomically: one tx emits the TradeReport plus the bond/cash
+  // transfers, so pick the TradeReport out of the created events by template.
+  const awardTx = await submit(buyer, { ExerciseCommand: { templateId: `${pkg}:Bisik:RFQ`, contractId: rfq,
+    choice: 'Award', choiceArgument: { quoteCids: myQuotes.map((q) => q.cid), cashCid: cash.cid } } });
+  const trEv = awardTx.transaction?.events?.map((e) => e.CreatedEvent).find((e) => e && e.templateId.endsWith(':Bisik:TradeReport'));
+  if (!trEv) throw new Error('Award produced no TradeReport');
+  const tr = trEv.contractId;
+
+  // Verify the settled trade on the regulator's ledger — cleared at the SECOND
+  // price, not the winner's own lower ask (proof the Vickrey rail ran on-chain).
+  // This per-run regulator sees only this one trade.
+  const report = (await acs(regulator)).find((c) => isT(c, 'TradeReport'));
+  if (!report || report.cid !== tr) throw new Error('no matching TradeReport on the regulator ledger — settlement did not land');
+  const priceA = priceFor(80), priceB = priceFor(140), cleared = report.arg.clearingPrice;
+  console.log('\n✓ two agents negotiated and settled a real trade on-ledger:');
+  console.log(`  · MarketMaker A asked ${Number(priceA).toLocaleString()} (+0.80%) — won`);
+  console.log(`  · MarketMaker B asked ${Number(priceB).toLocaleString()} (+1.40%) — runner-up`);
+  console.log(`  · cleared at ${Number(cleared).toLocaleString()} = the SECOND price (Vickrey), not the winner's ask`);
+  console.log(`  · TradeReport ${tr.slice(0, 24)}… now on the regulator's ledger`);
+  if (Number(cleared) !== Number(priceB)) throw new Error(`clearing ${cleared} != Vickrey second price ${priceB}`);
+  // Idempotent: a re-quote pass places nothing new (quotes already consumed by settlement).
+  const idle = (await quotePass(pkg, dealerA, 80)) + (await quotePass(pkg, dealerB, 140));
+  if (idle !== 0) throw new Error(`expected no new quotes on re-run, placed ${idle}`);
+  console.log('  · re-run placed 0 new quotes (idempotent) ✓');
 }
 
 const cmd = process.argv[2];

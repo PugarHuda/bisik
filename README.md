@@ -162,20 +162,30 @@ Tools: `explain_desk`, `party_view`, `list_settlements`, `market_snapshot` — a
 read-only, no signing. Drop `.mcp.json` into Claude Desktop / Cursor, or
 `cd mcp && npm install && npm start`. See `mcp/README.md`.
 
-And the *acting* side — an **autonomous market-maker agent** (`scripts/agent.mjs`):
-a software agent, acting as a dealer, watches the ledger for RFQs it's invited to
-and auto-submits a sealed quote priced by its own rule. It only ever sees its own
-invitations (Canton privacy), so it quotes **blind**, like a real market maker —
-it can't peek at rival quotes.
+And the *acting* side — **autonomous market-maker agents** (`scripts/agent.mjs`):
+software agents, acting as dealers, watch the ledger for RFQs they're invited to
+and auto-submit a sealed quote priced by their own rule. Each only ever sees its
+own invitations (Canton privacy), so it quotes **blind**, like a real market
+maker — it can't peek at rival quotes. The demo runs a **complete commercial
+round-trip between agents**: two dealer-agents quote at different markups, a
+buyer-agent reads the sealed quotes and awards, and the on-ledger `Award` choice
+clears at the **Vickrey (second) price** — settling a real `TradeReport` on
+Devnet. No party ever sets the clearing price by hand; the agents coordinate it.
 
 ```bash
-npm run agent:demo   # self-contained: posts an RFQ, the agent detects it and quotes
-# → detected RFQ TBOND30 ×1000 → sealed quote 4,242,000 (ref 4,200,000 + 100bps)
+npm run agent:demo   # posts an RFQ, two agents quote, a buyer-agent awards + settles
+# → two agents negotiated and settled a real trade on-ledger:
+#   · MarketMaker A asked 4,233,600 (+0.80%) — won
+#   · MarketMaker B asked 4,258,800 (+1.40%) — runner-up
+#   · cleared at 4,258,800 = the SECOND price (Vickrey), not the winner's ask
+#   · TradeReport 0016f9c711… now on the regulator's ledger
+# On Devnet: BISIK_PKG=<pkgid> LEDGER_ENV_FILE=scripts/.env.devnet node scripts/agent.mjs demo
 ```
 
 Together these span two hackathon themes on one confidential ledger: Private DeFi
-and agentic commerce with privacy — an agent that both *reads* (verifies privacy)
-and *acts* (quotes) on a market where it structurally cannot see its rivals.
+and agentic commerce with privacy — agents that both *read* (verify privacy) and
+*act* (quote, award, settle a real trade) on a market where they structurally
+cannot see their rivals.
 
 ## Honest scope
 
