@@ -83,6 +83,29 @@ async function runEngine(name) {
   ok('renders cleanly with prefers-reduced-motion', rmErrors.length === 0, rmErrors[0]);
   await rmCtx.close();
 
+  // ── Pitch deck ──
+  console.log('── Deck (/deck) ──');
+  const deckResp = await page.goto(BASE + '/deck', { waitUntil: 'load', timeout: 45000 });
+  ok('/deck responds 200', deckResp && deckResp.status() === 200, `status ${deckResp && deckResp.status()}`);
+  const slideCount = await page.locator('.slide').count();
+  ok('deck has all 13 slides', slideCount === 13, `${slideCount} slides`);
+  let exactlyOne = true;
+  for (let s = 0; s < slideCount; s++) {
+    if (await page.locator('.slide.on').count() !== 1) exactlyOne = false;
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(90);
+  }
+  ok('exactly one slide is visible at every step', exactlyOne);
+  const brokenImgs = await page.evaluate(() =>
+    Array.from(document.images).filter((i) => i.naturalWidth === 0).map((i) => i.getAttribute('src')));
+  ok('every deck image loads', brokenImgs.length === 0, brokenImgs.join(','));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(400);
+  const deckOverflow = await page.evaluate(() =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  ok('deck has no horizontal overflow at 390px', deckOverflow <= 2, `overflow ${deckOverflow}px`);
+  await page.setViewportSize({ width: 1440, height: 900 });
+
   // ── Desk over live Devnet, read-only ──
   console.log('── Desk (read-only, live Devnet) ──');
   await page.goto(BASE + '/app', { waitUntil: 'load', timeout: 45000 });

@@ -365,7 +365,7 @@ instruments — and nothing moves in any of those failures).
 | Desk Daml scripts (frozen `b0058535…`) | **27/27** |
 | Token-standard Daml scripts | **9/9** |
 | Playwright `e2e` / `e2e:actions` / `e2e:bestexec` (fresh ledger each) | **22/22 · 16/16 · 8/8** |
-| Playwright `e2e:hosted` — Chromium + Firefox + WebKit | **66/66** |
+| Playwright `e2e:hosted` — Chromium + Firefox + WebKit (landing + **/deck** + desk) | **81/81** |
 | MCP `e2e:mcp` — all tools + error paths | **25/25** |
 | Read-only proxy self-check | **6/6** |
 | Devnet token standard (`d969c045…`) | transfer instruction + atomic DvP, on-ledger |
